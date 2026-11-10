@@ -85,7 +85,9 @@ return [
         ->default(Settings::MIN_POSTS, Settings::DEFAULTS[Settings::MIN_POSTS])
         ->default(Settings::MIN_PARTICIPANTS, Settings::DEFAULTS[Settings::MIN_PARTICIPANTS])
         ->default(Settings::SEASON_MODE, Settings::DEFAULTS[Settings::SEASON_MODE])
-        ->serializeToForum('hypeNav', Settings::NAV, 'boolval'),
+        ->default(Settings::LOSS, Settings::DEFAULTS[Settings::LOSS])
+        ->serializeToForum('hypeNav', Settings::NAV, 'boolval')
+        ->serializeToForum('hypeLoss', Settings::LOSS, 'intval'),
 
     (new Extend\Event())
         ->listen(Started::class, OpenMarket::class),

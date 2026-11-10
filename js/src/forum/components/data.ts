@@ -19,6 +19,8 @@ export interface Person {
 export interface Mine {
   id: number;
   stake: number;
+  /** Percent of the stake this call loses if the discussion stays flat (fixed when it was made). */
+  loss: number;
   entryPrice: number;
   createdAt: string;
   settledAt: string | null;
@@ -133,6 +135,9 @@ export function until(iso: string): string {
   if (h) return tx('time.hm', { h, m });
   return tx('time.m', { m: Math.max(1, m) });
 }
+
+/** The forum's current loss share for new calls, in percent (0 = nobody loses). */
+export const lossPercent = (): number => Number(app.forum.attribute('hypeLoss') || 0);
 
 /** "up", "down" or "flat": the colour a change is shown in. */
 export const trend = (change: number) => (change > 0.005 ? 'up' : change < -0.005 ? 'down' : 'flat');

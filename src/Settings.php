@@ -20,6 +20,8 @@ final class Settings
     public const MIN_POSTS = self::PREFIX.'min_posts';
     public const MIN_PARTICIPANTS = self::PREFIX.'min_participants';
     public const SEASON_MODE = self::PREFIX.'season_mode';
+    /** Percent of its stake a call loses if the discussion stays flat. 0 = nobody loses. */
+    public const LOSS = self::PREFIX.'loss_percent';
     /** Stamped by every hype:tick, so the admin page can say when the scheduler last ran. */
     public const LAST_TICK = self::PREFIX.'last_tick';
 
@@ -39,6 +41,7 @@ final class Settings
         self::MIN_POSTS => 3,
         self::MIN_PARTICIPANTS => 2,
         self::SEASON_MODE => 'monthly',
+        self::LOSS => 0,
     ];
 
     public function __construct(private readonly SettingsRepositoryInterface $settings)
@@ -96,6 +99,12 @@ final class Settings
     public function minParticipants(): int
     {
         return $this->int(self::MIN_PARTICIPANTS, 1, 50);
+    }
+
+    /** Percent, 0–100. */
+    public function loss(): int
+    {
+        return $this->int(self::LOSS, 0, 100);
     }
 
     public function monthlySeasons(): bool

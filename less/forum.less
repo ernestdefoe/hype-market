@@ -12,6 +12,7 @@
   --hype-up: #15803d;
   --hype-up-bg: rgba(21, 128, 61, 0.1);
   --hype-down: #b91c1c;
+  --hype-down-bg: rgba(185, 28, 28, 0.08);
   --hype-flame: #ea580c;
   --hype-flame-2: #f59e0b;
   --hype-flame-bg: rgba(234, 88, 12, 0.1);
@@ -21,6 +22,7 @@
     --hype-up: #4ade80;
     --hype-up-bg: rgba(74, 222, 128, 0.12);
     --hype-down: #f87171;
+    --hype-down-bg: rgba(248, 113, 113, 0.12);
     --hype-flame: #fb923c;
     --hype-flame-2: #fbbf24;
     --hype-flame-bg: rgba(251, 146, 60, 0.14);
@@ -658,7 +660,7 @@ html:not(#x-hi) .HypeBoard .HypeBoard-member {
 }
 .HypeBoard-profit {
   text-align: right;
-  color: var(--hype-up);
+  color: var(--hype-trend, var(--hype-up));
   font-size: 16px;
   font-variant-numeric: tabular-nums;
 }
@@ -856,6 +858,12 @@ html:not(#x-hi) .HypeBackModal-preset {
     display: block;
     color: var(--hype-up);
     font-size: 14px;
+  }
+  li.is-loss {
+    background: var(--hype-down-bg);
+    strong {
+      color: var(--hype-down);
+    }
   }
 }
 

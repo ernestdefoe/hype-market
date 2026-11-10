@@ -609,11 +609,91 @@ class MarketTest extends TestCase
         $this->assertSame(Pricing::price(2 * 4), $bo->exit_price);
     }
 
+    private function lossRate(int $percent): void
+    {
+        $this->app()->getContainer()->make(SettingsRepositoryInterface::class)->set('ernestdefoe-hype-market.loss_percent', (string) $percent);
+    }
+
+    #[Test]
+    public function with_losses_on_a_quiet_call_loses_its_share(): void
+    {
+        $this->lossRate(50);
+        $this->backOk(self::BO, 40);
+        // One friend alone: below the participant minimum, so it counts as flat.
+        $this->reply(self::DEE, 10);
+
+        $this->assertTrue($this->settle());
+        $bo = $this->position(self::BO);
+        $this->assertSame(50, $bo->loss);
+        $this->assertSame(0.5, $bo->multiplier);
+        $this->assertSame(20, $bo->payout);
+        $this->assertSame(-20, $bo->profit);
+        $this->assertSame(-20, Score::query()->where('user_id', self::BO)->value('profit'));
+        $this->assertSame(0, Score::query()->where('user_id', self::BO)->value('wins'));
+    }
+
+    #[Test]
+    public function with_losses_on_a_call_that_grows_enough_still_profits(): void
+    {
+        $this->lossRate(20);
+        $this->backOk(self::BO, 50);
+        foreach ([self::DEE, self::ELI, self::IVY, self::JAY] as $i => $member) {
+            $this->reply($member, 10 + $i);
+        }
+
+        $this->assertTrue($this->settle());
+        $bo = $this->position(self::BO);
+        $growth = $bo->exit_price / $bo->entry_price;
+        $this->assertEqualsWithDelta(round($growth - 0.2, 4), $bo->multiplier, 0.0001);
+        $this->assertGreaterThan(0, $bo->profit);
+        $this->assertSame(Pricing::payout(50, $bo->multiplier) - 50, $bo->profit);
+    }
+
+    #[Test]
+    public function a_call_keeps_the_loss_rate_it_was_made_with(): void
+    {
+        $this->backOk(self::BO, 40);
+        // Losses switched on after bo backed: bo's call still can't lose.
+        $this->lossRate(100);
+        $this->backOk(self::CY, 40);
+
+        $this->assertTrue($this->settle());
+        $this->assertSame(40, $this->position(self::BO)->payout);
+        $this->assertSame(0, $this->position(self::CY)->payout, 'cy backed at 100%: a flat call loses it all');
+    }
+
+    #[Test]
+    public function a_called_off_market_refunds_every_stake_even_with_losses_on(): void
+    {
+        $this->lossRate(100);
+        $this->backOk(self::BO, 30);
+        $this->database()->table('discussions')->where('id', 1)->update(['hidden_at' => Carbon::now()]);
+
+        $this->assertTrue($this->settle());
+        $this->assertSame(30, $this->position(self::BO)->payout);
+        $this->assertSame(0, $this->position(self::BO)->profit);
+    }
+
+    #[Test]
+    public function the_leaderboard_ranks_losses_below_zero(): void
+    {
+        $this->lossRate(50);
+        $this->backOk(self::BO, 40);
+        $this->assertTrue($this->settle());
+
+        [, $body] = $this->api('GET', '/leaderboard', self::BO);
+        $this->assertSame(-20, $body['rows'][0]['profit']);
+        $this->assertSame(-20, $body['me']['profit']);
+    }
+
     #[Test]
     public function payouts_are_capped(): void
     {
         $this->assertSame(Pricing::MAX_MULTIPLIER, Pricing::multiplier(10, 1000, 50, 2));
-        $this->assertSame(1.0, Pricing::multiplier(20, 10, 50, 2), 'no member loses hype');
+        $this->assertSame(1.0, Pricing::multiplier(20, 10, 50, 2), 'by default no member loses hype');
+        $this->assertSame(0.75, Pricing::multiplier(20, 10, 50, 2, 25));
+        $this->assertSame(0.0, Pricing::multiplier(20, 10, 50, 2, 100));
+        $this->assertSame(Pricing::MAX_MULTIPLIER, Pricing::multiplier(10, 1000, 50, 2, 30), 'the cap applies after the loss share');
     }
 
     // ---------------------------------------------------------------- reading

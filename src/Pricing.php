@@ -76,17 +76,17 @@ final class Pricing
     }
 
     /**
-     * What a position pays per hype staked. Never below 1 (no member loses hype
-     * to a quiet discussion), never above MAX_MULTIPLIER, and exactly 1 unless
-     * enough different members took part.
+     * What a position pays per hype staked: its growth (never below 1, counted
+     * as 1 unless enough different members took part), less the call's loss
+     * share, between 0 and MAX_MULTIPLIER. With no loss share (the default) a
+     * quiet discussion pays the stake back and nobody loses hype; with 50%, a
+     * flat call pays back half and a call has to grow 1.5× to break even.
      */
-    public static function multiplier(float $entry, float $exit, int $participants, int $minParticipants): float
+    public static function multiplier(float $entry, float $exit, int $participants, int $minParticipants, int $lossPercent = 0): float
     {
-        if ($participants < $minParticipants || $entry <= 0) {
-            return 1.0;
-        }
+        $growth = $participants < $minParticipants || $entry <= 0 ? 1.0 : max(1.0, $exit / $entry);
 
-        return round(min(self::MAX_MULTIPLIER, max(1.0, $exit / $entry)), 4);
+        return round(max(0.0, min(self::MAX_MULTIPLIER, $growth - $lossPercent / 100)), 4);
     }
 
     public static function payout(int $stake, float $multiplier): int

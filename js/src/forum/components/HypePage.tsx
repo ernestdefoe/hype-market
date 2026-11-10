@@ -8,7 +8,21 @@ import Link from 'flarum/common/components/Link';
 import Select from 'flarum/common/components/Select';
 import type Mithril from 'mithril';
 import MarketCard from './MarketCard';
-import { call, fakeUser, num, signed, times, until, type Board, type BoardRow, type Market, type Portfolio, type Wallet } from './data';
+import {
+  call,
+  fakeUser,
+  lossPercent,
+  num,
+  signed,
+  times,
+  trend,
+  until,
+  type Board,
+  type BoardRow,
+  type Market,
+  type Portfolio,
+  type Wallet,
+} from './data';
 import { t, tx } from '../util';
 
 /**
@@ -177,7 +191,7 @@ export default class HypePage extends Page {
         </div>
         <div className="HypeWallet-tile">
           <span className="HypeWallet-label">{t('wallet.profit')}</span>
-          <span className={'HypeWallet-value HypeTrend--' + (s && s.profit > 0 ? 'up' : 'flat')}>{s ? signed(s.profit) : '–'}</span>
+          <span className={'HypeWallet-value HypeTrend--' + (s ? trend(s.profit) : 'flat')}>{s ? signed(s.profit) : '–'}</span>
           <span className="HypeWallet-sub">{s?.rank ? t('wallet.rank', { rank: s.rank, season: s.season.name }) : s ? s.season.name : ''}</span>
         </div>
         <div className="HypeWallet-tile">
@@ -250,7 +264,7 @@ export default class HypePage extends Page {
             {p.settled.map((market) => {
               const mine = market.mine!;
               return (
-                <li className={'HypeHistory-row HypeTrend--' + (mine.profit > 0 ? 'up' : 'flat')}>
+                <li className={'HypeHistory-row HypeTrend--' + trend(mine.profit)}>
                   <span className="HypeHistory-title">
                     {market.discussion ? (
                       <Link href={app.route('discussion', { id: market.discussion.slug })}>{market.discussion.title}</Link>
@@ -292,6 +306,7 @@ export default class HypePage extends Page {
             <ul>
               <li>{t('board.how_price')}</li>
               <li>{t('board.how_pay')}</li>
+              {lossPercent() ? <li>{t('board.how_loss', { percent: lossPercent(), x: 1 + lossPercent() / 100 })}</li> : null}
               <li>{t('board.how_fair')}</li>
               <li>{t('board.how_rank')}</li>
             </ul>
@@ -327,7 +342,7 @@ export default class HypePage extends Page {
         <span className="HypeBoard-best" title={tx('board.best_title')}>
           {row.bestMultiplier > 1 ? times(row.bestMultiplier) : '–'}
         </span>
-        <strong className="HypeBoard-profit">{signed(row.profit)}</strong>
+        <strong className={'HypeBoard-profit HypeTrend--' + trend(row.profit)}>{signed(row.profit)}</strong>
       </li>
     );
   }

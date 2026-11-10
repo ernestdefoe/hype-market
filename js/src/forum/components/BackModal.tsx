@@ -4,7 +4,7 @@ import Button from 'flarum/common/components/Button';
 import Icon from 'flarum/common/components/Icon';
 import type Mithril from 'mithril';
 import Sparkline from './Sparkline';
-import { call, num, price, until, type Market, type Wallet } from './data';
+import { call, lossPercent, num, price, until, type Market, type Wallet } from './data';
 import { t, tx } from '../util';
 
 /**
@@ -45,6 +45,9 @@ export default class BackModal extends FormModal<Attrs> {
     const { market, wallet } = this.attrs;
     const max = this.max();
     const backsLeft = wallet.maxBacks - wallet.backs;
+    const loss = lossPercent();
+    // With a loss share, show what a flat call costs and where it breaks even; without, the upside.
+    const outcomes = loss ? [1, 2, 3] : [1.5, 2, 3];
     const presets = [wallet.minStake, 10, 25, max]
       .filter((n, i, all) => n >= wallet.minStake && n <= max && all.indexOf(n) === i)
       .sort((a, b) => a - b);
@@ -100,10 +103,10 @@ export default class BackModal extends FormModal<Attrs> {
             </div>
 
             <ul className="HypeBackModal-outcomes">
-              {[1.5, 2, 3].map((x) => (
-                <li>
-                  <span>{t('back.if_grows', { x })}</span>
-                  <strong>{t('back.you_get', { n: num(Math.floor(this.stake * x)) })}</strong>
+              {outcomes.map((x) => (
+                <li className={x - loss / 100 < 1 ? 'is-loss' : ''}>
+                  <span>{x === 1 ? t('back.if_flat') : t('back.if_grows', { x })}</span>
+                  <strong>{t('back.you_get', { n: num(Math.floor(this.stake * Math.max(0, x - loss / 100))) })}</strong>
                 </li>
               ))}
             </ul>
@@ -113,7 +116,9 @@ export default class BackModal extends FormModal<Attrs> {
                 <Icon name="fas fa-clock" /> {t('back.rule_settles', { time: until(market.settlesAt) })}
               </li>
               <li>
-                <Icon name="fas fa-shield-halved" /> {t('back.rule_safe')}
+                {loss
+                  ? [<Icon name="fas fa-triangle-exclamation" />, ' ', t('back.rule_loss', { percent: loss, x: 1 + loss / 100 })]
+                  : [<Icon name="fas fa-shield-halved" />, ' ', t('back.rule_safe')]}
               </li>
               <li>
                 <Icon name="fas fa-users" /> {t('back.rule_people', { n: market.participantsNeeded })}

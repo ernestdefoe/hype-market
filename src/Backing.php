@@ -73,6 +73,7 @@ class Backing
             $position->user_id = (int) $actor->id;
             $position->season_id = Season::current()->id;
             $position->stake = $stake;
+            $position->loss = $this->settings->loss();
             $position->entry_price = Pricing::at($events, $now->getTimestamp(), $excluded)['price'];
             $position->created_at = $now;
             $position->save();

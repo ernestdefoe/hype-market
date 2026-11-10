@@ -13,6 +13,7 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
  * @property int $user_id
  * @property int|null $season_id
  * @property int $stake
+ * @property int $loss
  * @property float $entry_price
  * @property float|null $exit_price
  * @property float|null $multiplier
@@ -35,6 +36,7 @@ class Position extends AbstractModel
         'user_id' => 'integer',
         'season_id' => 'integer',
         'stake' => 'integer',
+        'loss' => 'integer',
         'entry_price' => 'float',
         'exit_price' => 'float',
         'multiplier' => 'float',

@@ -25,7 +25,9 @@ A discussion's price starts at 10 and follows its engagement during the market w
 - likes count ½ each, at most three per member,
 - `price = 10 × (1 + ln(1 + engagement / 4))`, so a pile-on is worth less than a conversation.
 
-A position pays `stake × (price at settlement ÷ price when you backed)`, between 1× and 10×.
+A position pays `stake × (price at settlement ÷ price when you backed)`, between 1× and 10×. By default nobody loses hype: a quiet discussion pays the stake back.
+
+**Losing hype is an option.** Set *Hype a quiet call loses (%)* above 0 and a call that stays flat loses that share of its stake; it has to grow past it to profit (at 50%, a call breaks even at 1.5×). Each call keeps the rate it was made with, so changing the setting never changes calls already open. A called-off market always refunds every stake.
 
 ## Anti-farming
 
@@ -46,7 +48,7 @@ Each of these has an integration test.
 
 ## Settings
 
-Admin → Hype Market: daily hype, smallest and largest stake, backs per day, how long a discussion can be backed, when it settles, account age and post count before activity counts, members needed for a payout, monthly or manual seasons (with "End this season now"), and whether the scheduler is running. Permissions: view, back, call off markets.
+Admin → Hype Market: daily hype, how much a quiet call loses (0 by default), smallest and largest stake, backs per day, how long a discussion can be backed, when it settles, account age and post count before activity counts, members needed for a payout, monthly or manual seasons (with "End this season now"), and whether the scheduler is running. Permissions: view, back, call off markets.
 
 > **The scheduler must run** (`php flarum schedule:run` every minute from cron): it prices, settles and starts new seasons every five minutes.
 

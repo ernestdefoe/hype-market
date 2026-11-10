@@ -20,6 +20,7 @@ export default [
     .setting(...number('min_account_days', 0, 365, 85))
     .setting(...number('min_posts', 0, 1000, 84))
     .setting(...number('min_participants', 1, 50, 83))
+    .setting(...number('loss_percent', 0, 100, 82))
     .setting(
       () => ({
         setting: setting('season_mode'),

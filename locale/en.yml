@@ -65,9 +65,11 @@ ernestdefoe-hype-market:
       max: "Max ({n})"
       left: "{left} of {allowance} hype left today, {backs} backs left. Refills in {time}."
       if_grows: "At {x}×"
+      if_flat: If it stays flat
       you_get: "you get {n}"
       rule_settles: "Settles in {time}. You earn in proportion to how much it grows after now, so early calls pay most."
       rule_safe: You can't lose hype. A quiet discussion pays your stake back.
+      rule_loss: "If it stays quiet you lose {percent}% of your stake. It has to grow {x}× to break even."
       rule_people: "It only pays once at least {n} different members join the conversation."
       rule_own: Your own replies and likes won't count toward it, and neither will other backers'.
       submit: "Back with {n} hype"
@@ -89,6 +91,7 @@ ernestdefoe-hype-market:
       how: How it works
       how_price: A discussion's price climbs as different members reply and like posts in it, with diminishing returns.
       how_pay: When a market settles, every backer gets their stake times how much the price grew after they backed it, up to 10×.
+      how_loss: "On this forum a call that stays quiet loses {percent}% of its stake, so a discussion has to grow {x}× to break even."
       how_fair: The author, the backers and brand-new accounts don't move the price, and the same friends can only lift your calls a few times a season.
       how_rank: Members are ranked by season profit. Seasons reset every month.
       record: "{wins} of {settled} paid off"
@@ -97,9 +100,9 @@ ernestdefoe-hype-market:
 
     notification:
       paid: Your hype call paid off
-      flat: Your hype call settled flat
+      flat: Your hype call didn't pay off
       preference_paid: Someone's discussion I backed took off and paid out
-      preference_flat: A discussion I backed settled flat or was called off
+      preference_flat: A discussion I backed didn't pay off or was called off
 
     time:
       dh: "{d}d {h}h"
@@ -138,6 +141,8 @@ ernestdefoe-hype-market:
       min_posts_help: Members with fewer posts than this don't move prices.
       min_participants: Members needed for a payout
       min_participants_help: A market pays out only when at least this many different members (not the author or backers) replied.
+      loss_percent: Hype a quiet call loses (%)
+      loss_percent_help: "0 means nobody ever loses hype: a quiet discussion pays the stake back. Above 0, a call loses this share of its stake if the discussion stays flat, and has to grow past it to profit (50% = break even at 1.5×). Calls already made keep the rate they were made with."
       season_mode: Seasons
       season_mode_help: Monthly seasons start fresh on the first of every month. Manual seasons run until you end them below.
       season_monthly: Every month

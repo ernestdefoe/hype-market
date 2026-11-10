@@ -98,11 +98,12 @@ class Presenter
     public function position(Position $position, Market $market): array
     {
         $settled = (bool) $position->settled_at;
-        $estimate = $settled ? null : Pricing::multiplier($position->entry_price, $market->price, $market->participants, $this->settings->minParticipants());
+        $estimate = $settled ? null : Pricing::multiplier($position->entry_price, $market->price, $market->participants, $this->settings->minParticipants(), $position->loss);
 
         return [
             'id' => $position->id,
             'stake' => $position->stake,
+            'loss' => $position->loss,
             'entryPrice' => round($position->entry_price, 2),
             'createdAt' => $position->created_at->toIso8601String(),
             'settledAt' => $position->settled_at?->toIso8601String(),

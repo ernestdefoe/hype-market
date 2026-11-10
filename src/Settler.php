@@ -72,7 +72,7 @@ class Settler
                     $entryAt = $position->created_at->getTimestamp();
                     $entry = Pricing::at($events, $entryAt, $mine)['price'];
                     $exit = Pricing::at($events, $settleAt, $mine, $entryAt);
-                    $multiplier = Pricing::multiplier($entry, $exit['price'], $exit['participants'], $min);
+                    $multiplier = Pricing::multiplier($entry, $exit['price'], $exit['participants'], $min, $position->loss);
                     $position->exit_price = $exit['price'];
                     $this->write($position, $entry, $multiplier, $multiplier > 1 ? $exit['contributors'] : [], $now);
                 }
