@@ -5,7 +5,12 @@ namespace ErnestDefoe\HypeMarket;
 /**
  * Season totals, rebuilt from settled positions for exactly the members a
  * settlement touched: recounted, never incremented, so a repeat run or a
- * deleted position can't make them drift. One query to read, one to write.
+ * deleted position can't make them drift.
+ *
+ * 🚨 Under the members' hype_accounts row locks (taken in id order): two
+ * settlements touching the same member at once (the tick and a moderator's
+ * call-off) would otherwise each read the totals before the other's position
+ * was written, and the later upsert would drop a settled call.
  */
 class Scores
 {
@@ -19,6 +24,24 @@ class Scores
             }
         }
 
+        if (! $bySeason) {
+            return;
+        }
+
+        $all = array_values(array_unique(array_merge(...array_map('array_keys', array_values($bySeason)))));
+        sort($all);
+
+        Score::query()->getConnection()->transaction(function () use ($bySeason, $all) {
+            Account::query()->insertOrIgnore(array_map(fn ($id) => ['user_id' => $id, 'spent' => 0, 'backs' => 0], $all));
+            Account::query()->whereIn('user_id', $all)->orderBy('user_id')->lockForUpdate()->get(['user_id']);
+
+            $this->write($bySeason);
+        });
+    }
+
+    /** @param array<int, array<int, true>> $bySeason */
+    private function write(array $bySeason): void
+    {
         foreach ($bySeason as $seasonId => $users) {
             $ids = array_keys($users);
             $totals = Position::query()

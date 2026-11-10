@@ -35,7 +35,8 @@ Built so the only way to win is to spot good discussions early.
 
 - You can't back your own discussion, and its author's replies never count.
 - **Backers' own replies and likes never count**, for anyone: back it and then reply, or get a fellow backer to, and nothing moves. A later backer's earlier replies are taken out of everyone's numbers too.
-- Replies and likes from **low-trust accounts** don't count: unconfirmed email, fewer than 3 posts, or an account younger than 7 days *when it acted*.
+- Replies and likes from **low-trust accounts** don't count: unconfirmed email, fewer than 3 posts outside the discussion itself, or an account younger than 7 days *when it acted*.
+- Posts dated before the discussion started (merged in from elsewhere) don't count.
 - One-word replies, quote-only replies, hidden, private and unapproved posts don't count. Liking your own post doesn't count.
 - A market only pays once **at least 2 different members** (not the author or backers) took part.
 - **The same members can lift one backer's calls only 5 times a season**: a ring of friends taking turns stops paying.
@@ -45,6 +46,8 @@ Built so the only way to win is to spot good discussions early.
 - Moderators can **call off** a market that was gamed: every stake comes back flat. A discussion hidden, deleted or made private before it settles is called off automatically.
 
 Each of these has an integration test.
+
+With flarum/gdpr, a member's data export includes their calls and season totals, and erasing them removes those.
 
 ## Settings
 

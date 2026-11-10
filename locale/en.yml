@@ -1,4 +1,9 @@
 ernestdefoe-hype-market:
+  lib:
+    gdpr:
+      export: "Hype Market: every call the member made, their season totals and today's spending."
+      delete: "Hype Market: the member's calls, season totals and spending are deleted. Markets on their discussions stay, without an author."
+
   forum:
     nav: Hype Market
 

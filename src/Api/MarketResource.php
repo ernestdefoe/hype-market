@@ -43,7 +43,8 @@ class MarketResource extends AbstractDatabaseResource
     public function fields(): array
     {
         return [
-            Schema\Str::make('title'),
+            // The discussion's title as it is now (renames included); the copy taken at open only stands in once it's gone.
+            Schema\Str::make('title')->get(fn (Market $m) => $m->discussion->title ?? $m->title),
             Schema\Integer::make('discussionId')->get(fn (Market $m) => $m->discussion_id),
         ];
     }

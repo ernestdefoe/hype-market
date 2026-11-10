@@ -57,7 +57,7 @@ class MarketTest extends TestCase
         parent::setUp();
         Carbon::setTestNow(Carbon::parse(self::NOW));
 
-        $this->extension('flarum-likes', 'ernestdefoe-hype-market');
+        $this->extension('flarum-likes', 'flarum-gdpr', 'ernestdefoe-hype-market');
 
         $trusted = fn (int $id, string $name, array $extra = []) => $extra + [
             'id' => $id, 'username' => $name, 'email' => "$name@machine.local", 'is_email_confirmed' => 1,
@@ -322,6 +322,8 @@ class MarketTest extends TestCase
         for ($i = 4; $i <= 30; $i++) {
             $this->reply(self::DEE, $i);
         }
+        // Real posting raises comment_count with every reply (these raw inserts don't): 10 elsewhere + 30 here.
+        $this->database()->table('users')->where('id', self::DEE)->update(['comment_count' => 40]);
         $this->assertSame($three, $this->reprice()->price, 'replies past the third add nothing');
         $this->assertSame(Pricing::price(3 + 1 + 0.5 + 0.25), $three);
     }
@@ -607,6 +609,89 @@ class MarketTest extends TestCase
         $this->assertSame(10.0, $bo->entry_price);
         // cy's reply is out of both ends of bo's call: only dee and eli count.
         $this->assertSame(Pricing::price(2 * 4), $bo->exit_price);
+    }
+
+    #[Test]
+    public function replies_in_the_thread_itself_dont_make_an_account_established(): void
+    {
+        // gus had no posts; three replies here bring comment_count to 3, all of them in this thread.
+        $this->database()->table('users')->where('id', self::GUS)->update(['comment_count' => 3]);
+        $this->backOk(self::BO);
+        foreach ([5, 6, 7] as $minute) {
+            $this->reply(self::GUS, $minute);
+        }
+        $this->like(1, self::GUS, 8);
+        $this->assertSame(10.0, $this->reprice()->price);
+
+        // Three comments elsewhere and gus counts.
+        $this->database()->table('users')->where('id', self::GUS)->update(['comment_count' => 6]);
+        $this->assertGreaterThan(10.0, $this->reprice()->price);
+    }
+
+    #[Test]
+    public function posts_dated_before_the_market_opened_dont_count(): void
+    {
+        $this->backOk(self::BO);
+        // Merged in from an older discussion: dated before this one started.
+        $old = $this->reply(self::DEE, -180);
+        $this->reply(self::ELI, -170);
+        $this->like($old, self::IVY, -160);
+        $this->assertSame(10.0, $this->reprice()->price);
+    }
+
+    #[Test]
+    public function every_settled_call_lands_in_the_season_total(): void
+    {
+        $this->discussions([30]);
+        $this->backOk(self::BO, 50);
+        $this->backOk(self::BO, 30, 30);
+        foreach ([1, 30] as $id) {
+            $this->reply(self::DEE, 10, 'Dee has thoughts on this one as well.', $id);
+            $this->reply(self::ELI, 11, 'Eli has thoughts on this one as well.', $id);
+        }
+        $this->assertTrue($this->settle(1));
+        $this->assertTrue($this->settle(30));
+
+        $score = Score::query()->where('user_id', self::BO)->firstOrFail();
+        $this->assertSame(2, $score->settled);
+        $this->assertSame((int) Position::query()->where('user_id', self::BO)->sum('profit'), $score->profit);
+        $this->assertSame(1, Account::query()->whereKey(self::BO)->count(), 'the rebuild locks the account row it made or found');
+    }
+
+    #[Test]
+    public function alerts_show_the_discussions_title_as_it_is_now(): void
+    {
+        $this->backOk(self::BO, 50);
+        $this->reply(self::DEE, 10);
+        $this->reply(self::ELI, 11);
+        $this->database()->table('discussions')->where('id', 1)->update(['title' => 'Renamed after it opened']);
+        $this->assertTrue($this->settle());
+
+        $response = $this->send($this->request('GET', '/api/notifications', ['authenticatedAs' => self::BO]));
+        $this->assertSame(200, $response->getStatusCode());
+        $titles = array_map(fn ($i) => $i['attributes']['title'] ?? null, array_filter(json_decode((string) $response->getBody(), true)['included'] ?? [], fn ($i) => $i['type'] === 'hype-markets'));
+        $this->assertSame(['Renamed after it opened'], array_values($titles));
+    }
+
+    #[Test]
+    public function a_members_data_export_has_their_calls_and_erasing_removes_them(): void
+    {
+        $this->backOk(self::BO, 50);
+        $this->reply(self::DEE, 10);
+        $this->reply(self::ELI, 11);
+        $this->assertTrue($this->settle());
+
+        $user = User::query()->findOrFail(self::BO);
+        $data = $this->app()->getContainer()->make(\ErnestDefoe\HypeMarket\Gdpr\HypeData::class, ['user' => $user, 'erasureRequest' => null]);
+        $export = json_decode(array_values($data->export()[0])[0], true);
+        $this->assertSame('Discussion 1', $export['calls'][0]['discussion']);
+        $this->assertSame(50, $export['calls'][0]['stake']);
+        $this->assertCount(1, $export['seasons']);
+
+        $data->delete();
+        $this->assertSame(0, Position::query()->where('user_id', self::BO)->count());
+        $this->assertSame(0, Score::query()->where('user_id', self::BO)->count());
+        $this->assertSame(1, Market::query()->count(), 'the market stays for anyone else in it');
     }
 
     private function lossRate(int $percent): void

@@ -14,6 +14,7 @@
 
 use ErnestDefoe\HypeMarket\Api;
 use ErnestDefoe\HypeMarket\Console\TickCommand;
+use ErnestDefoe\HypeMarket\Gdpr\HypeData;
 use ErnestDefoe\HypeMarket\Http\PageContent;
 use ErnestDefoe\HypeMarket\Listener\OpenMarket;
 use ErnestDefoe\HypeMarket\Notification;
@@ -25,6 +26,7 @@ use Flarum\Api\Schema;
 use Flarum\Discussion\Discussion;
 use Flarum\Discussion\Event\Started;
 use Flarum\Extend;
+use Flarum\Gdpr\Extend\UserData;
 use Illuminate\Console\Scheduling\Event as ScheduledEvent;
 
 return [
@@ -97,4 +99,10 @@ return [
         ->schedule(TickCommand::class, function (ScheduledEvent $event) {
             $event->everyFiveMinutes()->withoutOverlapping();
         }),
+
+    // A member's calls, season totals and spending in their data export; erased with them.
+    (new Extend\Conditional())
+        ->whenExtensionEnabled('flarum-gdpr', fn () => [
+            (new UserData())->addType(HypeData::class),
+        ]),
 ];
