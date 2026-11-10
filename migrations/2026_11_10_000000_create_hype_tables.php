@@ -4,8 +4,11 @@ use Illuminate\Database\Schema\Blueprint;
 use Illuminate\Database\Schema\Builder;
 
 /*
- * Index names are written out and kept short: Laravel's generated names plus a
- * table prefix can pass MySQL's 64-character limit on a prefixed forum.
+ * Index and foreign key names are left to Laravel, which prefixes them with the
+ * table prefix: hand-written names are not prefixed, and MySQL foreign key names
+ * are database-wide, so two forums sharing a database would clash (error 1826).
+ * The longest generated name is 39 characters before the prefix (MigrationTest
+ * holds every name to MySQL's 64 with a 9-character prefix).
  */
 return [
     'up' => function (Builder $schema) {
@@ -42,10 +45,10 @@ return [
             $table->dateTime('voided_at')->nullable();
             $table->timestamps();
 
-            $table->unique('discussion_id', 'hype_markets_discussion_unique');
-            $table->index(['settled_at', 'settles_at'], 'hype_markets_due_index');
-            $table->foreign('discussion_id', 'hype_markets_discussion_fk')->references('id')->on('discussions')->nullOnDelete();
-            $table->foreign('user_id', 'hype_markets_user_fk')->references('id')->on('users')->nullOnDelete();
+            $table->unique('discussion_id');
+            $table->index(['settled_at', 'settles_at']);
+            $table->foreign('discussion_id')->references('id')->on('discussions')->nullOnDelete();
+            $table->foreign('user_id')->references('id')->on('users')->nullOnDelete();
         });
 
         $schema->create('hype_positions', function (Blueprint $table) {
@@ -67,12 +70,12 @@ return [
             $table->dateTime('settled_at')->nullable();
 
             // One position per member per discussion, enforced by the database too.
-            $table->unique(['market_id', 'user_id'], 'hype_positions_market_user_unique');
-            $table->index(['user_id', 'settled_at'], 'hype_positions_user_index');
-            $table->index(['season_id', 'user_id'], 'hype_positions_season_index');
-            $table->foreign('market_id', 'hype_positions_market_fk')->references('id')->on('hype_markets')->cascadeOnDelete();
-            $table->foreign('user_id', 'hype_positions_user_fk')->references('id')->on('users')->cascadeOnDelete();
-            $table->foreign('season_id', 'hype_positions_season_fk')->references('id')->on('hype_seasons')->nullOnDelete();
+            $table->unique(['market_id', 'user_id']);
+            $table->index(['user_id', 'settled_at']);
+            $table->index(['season_id', 'user_id']);
+            $table->foreign('market_id')->references('id')->on('hype_markets')->cascadeOnDelete();
+            $table->foreign('user_id')->references('id')->on('users')->cascadeOnDelete();
+            $table->foreign('season_id')->references('id')->on('hype_seasons')->nullOnDelete();
         });
 
         // A member's spending today: the row every back locks, so two at once can't both pass the caps.
@@ -82,7 +85,7 @@ return [
             $table->unsignedInteger('spent')->default(0);
             $table->unsignedInteger('backs')->default(0);
 
-            $table->foreign('user_id', 'hype_accounts_user_fk')->references('id')->on('users')->cascadeOnDelete();
+            $table->foreign('user_id')->references('id')->on('users')->cascadeOnDelete();
         });
 
         // One row per member per season, rebuilt from their positions whenever one settles.
@@ -96,10 +99,10 @@ return [
             $table->unsignedInteger('wins')->default(0);
             $table->double('best_multiplier')->default(0);
 
-            $table->unique(['season_id', 'user_id'], 'hype_scores_season_user_unique');
-            $table->index(['season_id', 'profit'], 'hype_scores_board_index');
-            $table->foreign('season_id', 'hype_scores_season_fk')->references('id')->on('hype_seasons')->cascadeOnDelete();
-            $table->foreign('user_id', 'hype_scores_user_fk')->references('id')->on('users')->cascadeOnDelete();
+            $table->unique(['season_id', 'user_id']);
+            $table->index(['season_id', 'profit']);
+            $table->foreign('season_id')->references('id')->on('hype_seasons')->cascadeOnDelete();
+            $table->foreign('user_id')->references('id')->on('users')->cascadeOnDelete();
         });
 
         $schema->getConnection()->table('hype_seasons')->insert([
