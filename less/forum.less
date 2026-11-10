@@ -1,0 +1,978 @@
+// Hype Market. Text comes from Flarum's CSS properties, so everything follows
+// light, dark, the coloured header and themes. The colours a theme can't lend
+// us (up, down, the flame) are set here for light and dark.
+// Link rules start with html:not(#x-hi): themes colour links with selectors
+// as strong as :root:not([data-theme^="dark"]) a:not(.Button).
+
+.HypePage,
+.HypeBar,
+.HypeBackModal,
+.HypeChip,
+.HypeCard {
+  --hype-up: #15803d;
+  --hype-up-bg: rgba(21, 128, 61, 0.1);
+  --hype-down: #b91c1c;
+  --hype-flame: #ea580c;
+  --hype-flame-2: #f59e0b;
+  --hype-flame-bg: rgba(234, 88, 12, 0.1);
+  --hype-gold: #b45309;
+
+  [data-theme^='dark'] & {
+    --hype-up: #4ade80;
+    --hype-up-bg: rgba(74, 222, 128, 0.12);
+    --hype-down: #f87171;
+    --hype-flame: #fb923c;
+    --hype-flame-2: #fbbf24;
+    --hype-flame-bg: rgba(251, 146, 60, 0.14);
+    --hype-gold: #fbbf24;
+  }
+}
+
+.HypeTrend--up {
+  --hype-trend: var(--hype-up);
+}
+.HypeTrend--down {
+  --hype-trend: var(--hype-down);
+}
+.HypeTrend--flat {
+  --hype-trend: var(--muted-color);
+}
+
+.HypeAvatar {
+  --size: 20px;
+  vertical-align: middle;
+}
+.HypeAvatar--board {
+  --size: 32px;
+}
+
+// The flame button: our own colours, so its white text is always on orange.
+.Button.HypeBackButton {
+  background: linear-gradient(135deg, var(--hype-flame), var(--hype-flame-2));
+  border: 0;
+  color: #fff;
+  font-weight: 700;
+  white-space: nowrap;
+  box-shadow: 0 2px 8px rgba(234, 88, 12, 0.3);
+  transition: transform 0.12s, box-shadow 0.12s;
+
+  .icon {
+    color: #fff;
+  }
+  &:hover,
+  &:focus-visible {
+    color: #fff;
+    background: linear-gradient(135deg, var(--hype-flame), var(--hype-flame));
+    box-shadow: 0 4px 14px rgba(234, 88, 12, 0.4);
+    transform: translateY(-1px);
+  }
+}
+
+// ---------------------------------------------------------------- the chip on discussion cards
+
+.HypeChip {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 1px 8px;
+  border-radius: 999px;
+  background: var(--hype-flame-bg);
+  color: var(--hype-flame);
+  font-size: 11px;
+  font-weight: 700;
+  line-height: 18px;
+  white-space: nowrap;
+  vertical-align: middle;
+
+  .icon {
+    font-size: 10px;
+  }
+}
+.HypeChip-change {
+  color: var(--hype-up);
+  font-weight: 700;
+}
+.HypeChip--hot {
+  background: linear-gradient(135deg, var(--hype-flame), var(--hype-flame-2));
+  color: #fff;
+
+  .HypeChip-change {
+    color: #fff;
+  }
+}
+.DiscussionListItem-info > li.item-hype {
+  margin-right: 8px;
+}
+
+// ---------------------------------------------------------------- sparkline
+
+.HypeSparkline {
+  display: block;
+  width: 100%;
+  height: 44px;
+  color: var(--hype-trend, var(--hype-flame));
+  overflow: visible;
+}
+.HypeSparkline-entry {
+  opacity: 0.55;
+}
+
+// ---------------------------------------------------------------- page
+
+.HypePage {
+  color: var(--text-color);
+  min-width: 0;
+}
+
+.HypePage-hero {
+  position: relative;
+  margin: 0 0 16px;
+  padding: 20px;
+  border-radius: calc(var(--border-radius) * 3);
+  background:
+    radial-gradient(circle at 100% 0, var(--hype-flame-bg), transparent 60%),
+    var(--control-bg);
+  overflow: hidden;
+}
+
+.HypePage-heading {
+  margin-bottom: 16px;
+}
+
+html:not(#x-hi) .HypePage .HypePage-title {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin: 0 0 6px;
+  font-size: 22px;
+  font-weight: 800;
+  color: var(--text-color);
+}
+
+.HypePage-flame {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 36px;
+  height: 36px;
+  border-radius: 12px;
+  background: linear-gradient(135deg, var(--hype-flame), var(--hype-flame-2));
+  color: #fff;
+  font-size: 18px;
+  box-shadow: 0 4px 12px rgba(234, 88, 12, 0.35);
+  flex-shrink: 0;
+
+  .icon {
+    color: #fff;
+  }
+}
+
+.HypePage-lead {
+  margin: 0;
+  color: var(--muted-color);
+  font-size: 14px;
+  max-width: 60ch;
+}
+
+.HypeWallet {
+  display: grid;
+  grid-template-columns: 1.3fr 1fr 1fr;
+  gap: 10px;
+}
+.HypeWallet--guest {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  flex-wrap: wrap;
+  p {
+    margin: 0;
+    flex: 1 1 260px;
+    color: var(--text-color);
+    font-size: 13px;
+  }
+}
+
+.HypeWallet-tile {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  min-width: 0;
+  padding: 12px 14px;
+  border-radius: calc(var(--border-radius) * 2);
+  background: var(--body-bg);
+  box-shadow: 0 1px 2px var(--shadow-color);
+}
+.HypeWallet-label {
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--muted-color);
+}
+.HypeWallet-value {
+  font-size: 22px;
+  font-weight: 800;
+  color: var(--hype-trend, var(--text-color));
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+
+  small {
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--muted-color);
+    margin-left: 3px;
+  }
+  .icon {
+    color: var(--hype-flame);
+    font-size: 17px;
+  }
+}
+.HypeWallet-bar {
+  display: block;
+  height: 5px;
+  border-radius: 3px;
+  background: var(--control-bg);
+  overflow: hidden;
+
+  span {
+    display: block;
+    height: 100%;
+    border-radius: 3px;
+    background: linear-gradient(90deg, var(--hype-flame), var(--hype-flame-2));
+    transition: width 0.3s;
+  }
+}
+.HypeWallet-sub {
+  font-size: 12px;
+  color: var(--muted-color);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.HypePage-tabs {
+  display: flex;
+  gap: 4px;
+  margin: 0 0 14px;
+  border-bottom: 1px solid var(--control-bg);
+  overflow-x: auto;
+  scrollbar-width: none;
+}
+
+html:not(#x-hi) .HypePage .HypePage-tab {
+  appearance: none;
+  border: 0;
+  background: none;
+  padding: 10px 14px;
+  margin-bottom: -1px;
+  border-bottom: 2px solid transparent;
+  color: var(--muted-color);
+  font-weight: 600;
+  font-size: 14px;
+  cursor: pointer;
+  white-space: nowrap;
+
+  &:hover {
+    color: var(--text-color);
+  }
+  &.is-active {
+    color: var(--text-color);
+    border-bottom-color: var(--hype-flame);
+    .icon {
+      color: var(--hype-flame);
+    }
+  }
+}
+
+.HypePage-sorts {
+  display: flex;
+  gap: 6px;
+  margin: 0 0 12px;
+  overflow-x: auto;
+  scrollbar-width: none;
+}
+
+html:not(#x-hi) .HypeChipButton {
+  appearance: none;
+  border: 1px solid var(--control-bg);
+  background: var(--body-bg);
+  color: var(--control-color);
+  border-radius: 999px;
+  padding: 5px 12px;
+  font-size: 13px;
+  font-weight: 600;
+  white-space: nowrap;
+  cursor: pointer;
+
+  &:hover {
+    background: var(--control-bg);
+  }
+  &.is-active {
+    background: var(--hype-flame-bg);
+    border-color: var(--hype-flame);
+    color: var(--hype-flame);
+  }
+}
+
+.HypePage-list {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(~'min(320px, 100%)', 1fr));
+  gap: 12px;
+}
+
+html:not(#x-hi) .HypePage .HypePage-section {
+  margin: 22px 0 10px;
+  font-size: 15px;
+  font-weight: 700;
+  color: var(--text-color);
+  &:first-child {
+    margin-top: 4px;
+  }
+}
+
+.HypePage-empty {
+  padding: 36px 16px;
+  text-align: center;
+  color: var(--muted-color);
+  border: 1px dashed var(--control-bg);
+  border-radius: calc(var(--border-radius) * 2);
+
+  .icon {
+    font-size: 28px;
+    color: var(--hype-flame);
+    opacity: 0.7;
+  }
+  p {
+    margin: 10px auto 0;
+    max-width: 44ch;
+  }
+}
+.HypePage-quiet {
+  color: var(--muted-color);
+}
+
+// ---------------------------------------------------------------- market card
+
+.HypeCard {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  min-width: 0;
+  padding: 14px 16px 12px;
+  border: 1px solid var(--control-bg);
+  border-radius: calc(var(--border-radius) * 2);
+  background: var(--body-bg);
+  color: var(--text-color);
+  box-shadow: 0 1px 2px var(--shadow-color);
+  transition: box-shadow 0.15s, transform 0.15s;
+
+  &:hover {
+    box-shadow: 0 6px 18px var(--shadow-color);
+  }
+}
+.HypeCard--mine {
+  border-color: var(--hype-flame);
+  box-shadow: 0 0 0 1px var(--hype-flame-bg), 0 1px 2px var(--shadow-color);
+}
+
+.HypeCard-main {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  min-width: 0;
+}
+
+.HypeCard-rank {
+  flex-shrink: 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 26px;
+  height: 26px;
+  border-radius: 8px;
+  background: var(--control-bg);
+  color: var(--control-color);
+  font-weight: 800;
+  font-size: 13px;
+
+  &.is-top-1,
+  &.is-top-2,
+  &.is-top-3 {
+    background: linear-gradient(135deg, var(--hype-flame), var(--hype-flame-2));
+    color: #fff;
+  }
+}
+
+.HypeCard-heading {
+  flex: 1;
+  min-width: 0;
+}
+
+html:not(#x-hi) .HypeCard .HypeCard-title {
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+  font-weight: 700;
+  font-size: 15px;
+  line-height: 1.3;
+  color: var(--text-color);
+  text-decoration: none;
+  overflow-wrap: anywhere;
+
+  &:hover {
+    color: var(--hype-flame);
+  }
+}
+.HypeCard-title--gone {
+  font-style: italic;
+  font-weight: 600;
+  color: var(--muted-color);
+}
+
+.HypeCard-meta {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px 10px;
+  margin-top: 4px;
+  font-size: 12px;
+  color: var(--muted-color);
+}
+.HypeCard-author {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  min-width: 0;
+}
+
+.HypeCard-quote {
+  flex-shrink: 0;
+  text-align: right;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+}
+.HypeCard-price {
+  font-size: 20px;
+  font-weight: 800;
+  font-variant-numeric: tabular-nums;
+  color: var(--text-color);
+  line-height: 1.1;
+}
+.HypeCard-change {
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--hype-trend);
+  white-space: nowrap;
+}
+
+.HypeCard-spark {
+  margin: 2px 0;
+}
+
+.HypeCard-foot {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px 12px;
+  font-size: 12px;
+  color: var(--muted-color);
+}
+.HypeCard-stat .icon {
+  color: var(--hype-flame);
+}
+.HypeCard-clock .icon {
+  color: var(--muted-color);
+}
+.HypeCard-action {
+  margin-left: auto;
+  min-width: 0;
+}
+
+.HypeMine {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  text-align: right;
+  line-height: 1.3;
+  min-width: 0;
+}
+.HypeMine-label {
+  color: var(--muted-color);
+  font-size: 11px;
+}
+.HypeMine-value {
+  color: var(--hype-trend);
+  font-size: 13px;
+}
+.HypeMine-note {
+  color: var(--muted-color);
+  font-size: 11px;
+  font-style: italic;
+}
+
+// ---------------------------------------------------------------- settled history
+
+.HypeHistory {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  border: 1px solid var(--control-bg);
+  border-radius: calc(var(--border-radius) * 2);
+  overflow: hidden;
+}
+.HypeHistory-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto auto 64px;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 14px;
+  font-size: 13px;
+  color: var(--text-color);
+
+  & + & {
+    border-top: 1px solid var(--control-bg);
+  }
+}
+.HypeHistory-title {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+html:not(#x-hi) .HypeHistory-title a {
+  color: var(--text-color);
+  font-weight: 600;
+}
+.HypeHistory-stake,
+.HypeHistory-x {
+  color: var(--muted-color);
+  white-space: nowrap;
+  font-variant-numeric: tabular-nums;
+}
+.HypeHistory-profit {
+  text-align: right;
+  color: var(--hype-trend);
+  font-variant-numeric: tabular-nums;
+}
+
+// ---------------------------------------------------------------- leaderboard
+
+.HypeBoard-toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-start;
+  gap: 10px 16px;
+  margin-bottom: 12px;
+
+  .Select {
+    max-width: 100%;
+  }
+}
+.HypeBoard-how {
+  flex: 1 1 260px;
+  font-size: 13px;
+  color: var(--muted-color);
+
+  summary {
+    cursor: pointer;
+    color: var(--control-color);
+    font-weight: 600;
+    padding: 6px 0;
+  }
+  ul {
+    margin: 6px 0 0;
+    padding-left: 18px;
+  }
+  li {
+    margin-bottom: 4px;
+  }
+}
+
+.HypeBoard-rows {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  border: 1px solid var(--control-bg);
+  border-radius: calc(var(--border-radius) * 2);
+  overflow: hidden;
+}
+.HypeBoard-row {
+  display: grid;
+  grid-template-columns: 34px minmax(0, 1fr) auto 52px 70px;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 14px;
+  color: var(--text-color);
+
+  & + & {
+    border-top: 1px solid var(--control-bg);
+  }
+  &.is-me {
+    background: var(--hype-flame-bg);
+  }
+}
+.HypeBoard-rank {
+  font-weight: 800;
+  text-align: center;
+  color: var(--muted-color);
+  font-variant-numeric: tabular-nums;
+
+  .is-top-1 & {
+    color: #d4a017;
+  }
+  .is-top-2 & {
+    color: #9ca3af;
+  }
+  .is-top-3 & {
+    color: #b8733e;
+  }
+  .icon {
+    font-size: 18px;
+  }
+}
+html:not(#x-hi) .HypeBoard .HypeBoard-member {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-width: 0;
+  color: var(--text-color);
+  text-decoration: none;
+  font-weight: 600;
+}
+.HypeBoard-name {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.HypeBoard-record,
+.HypeBoard-best {
+  font-size: 12px;
+  color: var(--muted-color);
+  white-space: nowrap;
+  text-align: right;
+}
+.HypeBoard-profit {
+  text-align: right;
+  color: var(--hype-up);
+  font-size: 16px;
+  font-variant-numeric: tabular-nums;
+}
+.HypeBoard-gap {
+  text-align: center;
+  color: var(--muted-color);
+  padding: 2px;
+  border-top: 1px solid var(--control-bg);
+}
+
+// ---------------------------------------------------------------- bar under the first post
+
+.HypeBarHost:empty {
+  display: none;
+}
+
+.HypeBar {
+  display: grid;
+  grid-template-columns: auto auto minmax(80px, 1fr) auto auto;
+  align-items: center;
+  gap: 14px;
+  margin: 16px 0 4px;
+  padding: 10px 14px;
+  border-radius: calc(var(--border-radius) * 2);
+  border: 1px solid var(--control-bg);
+  background:
+    linear-gradient(90deg, var(--hype-flame-bg), transparent 45%),
+    var(--body-bg);
+  color: var(--text-color);
+  font-size: 13px;
+}
+
+html:not(#x-hi) .HypeBar .HypeBar-brand {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  color: var(--hype-flame);
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  font-size: 11px;
+  text-decoration: none;
+}
+.HypeBar-quote {
+  display: flex;
+  flex-direction: column;
+  line-height: 1.15;
+}
+.HypeBar-price {
+  font-size: 18px;
+  font-weight: 800;
+  font-variant-numeric: tabular-nums;
+  color: var(--text-color);
+}
+.HypeBar-change {
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--hype-trend);
+  white-space: nowrap;
+}
+.HypeBar-spark {
+  height: 34px;
+  min-width: 0;
+}
+.HypeBar-facts {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  color: var(--muted-color);
+  font-size: 12px;
+  white-space: nowrap;
+}
+.HypeBar-action {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  justify-content: flex-end;
+}
+.HypeBar-note {
+  color: var(--muted-color);
+  font-size: 12px;
+  max-width: 22ch;
+}
+html:not(#x-hi) .HypeBar .HypeBar-void {
+  color: var(--muted-color);
+  font-size: 12px;
+  padding: 0;
+}
+
+// ---------------------------------------------------------------- back form
+
+.HypeBackModal {
+  color: var(--text-color);
+}
+.HypeBackModal-market {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 4px 12px;
+  margin-bottom: 18px;
+  padding: 12px 14px;
+  border-radius: calc(var(--border-radius) * 2);
+  border: 1px solid var(--control-bg);
+  background: var(--body-bg);
+
+  .HypeSparkline {
+    grid-column: ~'1 / -1';
+    height: 40px;
+  }
+}
+.HypeBackModal-title {
+  font-weight: 700;
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+.HypeBackModal-price {
+  text-align: right;
+  strong {
+    display: block;
+    font-size: 20px;
+    font-weight: 800;
+  }
+}
+.HypeBackModal-priceLabel {
+  font-size: 11px;
+  color: var(--muted-color);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.HypeBackModal-presets {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-bottom: 10px;
+}
+html:not(#x-hi) .HypeBackModal-preset {
+  appearance: none;
+  min-width: 52px;
+  padding: 7px 12px;
+  border-radius: 999px;
+  border: 1px solid var(--control-bg);
+  background: var(--body-bg);
+  color: var(--control-color);
+  font-weight: 700;
+  cursor: pointer;
+
+  &.is-active {
+    border-color: var(--hype-flame);
+    background: var(--hype-flame-bg);
+    color: var(--hype-flame);
+  }
+}
+
+.HypeBackModal-slider {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+
+  input[type='range'] {
+    flex: 1;
+    min-width: 0;
+    accent-color: var(--hype-flame);
+    height: 28px;
+  }
+}
+.HypeBackModal-amount {
+  min-width: 64px;
+  text-align: right;
+  font-size: 20px;
+  font-weight: 800;
+  font-variant-numeric: tabular-nums;
+  .icon {
+    color: var(--hype-flame);
+    font-size: 16px;
+  }
+}
+
+.HypeBackModal-outcomes {
+  list-style: none;
+  margin: 0 0 14px;
+  padding: 0;
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 8px;
+
+  li {
+    padding: 8px 10px;
+    border-radius: var(--border-radius);
+    background: var(--hype-up-bg);
+    color: var(--text-color);
+    font-size: 12px;
+    text-align: center;
+  }
+  strong {
+    display: block;
+    color: var(--hype-up);
+    font-size: 14px;
+  }
+}
+
+.HypeBackModal-rules {
+  list-style: none;
+  margin: 0 0 16px;
+  padding: 0;
+  font-size: 12px;
+  color: var(--muted-color);
+
+  li {
+    display: flex;
+    gap: 8px;
+    margin-bottom: 6px;
+  }
+  .icon {
+    width: 14px;
+    flex-shrink: 0;
+    margin-top: 2px;
+    color: var(--hype-flame);
+  }
+}
+.Button.HypeBackModal-submit {
+  width: 100%;
+  justify-content: center;
+}
+.HypeBackModal-empty {
+  padding: 16px;
+  text-align: center;
+  color: var(--muted-color);
+}
+
+// ---------------------------------------------------------------- phones
+
+@media (max-width: 767px) {
+  .HypePage-hero {
+    padding: 16px;
+    border-radius: calc(var(--border-radius) * 2);
+  }
+  .HypeWallet {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 6px;
+  }
+  .HypeWallet-tile {
+    padding: 10px;
+  }
+  .HypeWallet-label {
+    font-size: 10px;
+    letter-spacing: 0.02em;
+  }
+  .HypeWallet-sub {
+    white-space: normal;
+    overflow-wrap: anywhere;
+    font-size: 11px;
+  }
+  .HypeWallet-value {
+    font-size: 17px;
+    small {
+      display: none;
+    }
+    .icon {
+      font-size: 14px;
+    }
+  }
+
+  .HypeBar {
+    grid-template-columns: auto minmax(0, 1fr) auto;
+    grid-template-areas:
+      'brand spark quote'
+      'facts facts action';
+    gap: 8px 12px;
+  }
+  .HypeBar-brand {
+    grid-area: brand;
+  }
+  .HypeBar-quote {
+    grid-area: quote;
+    text-align: right;
+  }
+  .HypeBar-spark {
+    grid-area: spark;
+  }
+  .HypeBar-facts {
+    grid-area: facts;
+    flex-direction: row;
+    flex-wrap: wrap;
+    gap: 2px 12px;
+    white-space: normal;
+  }
+  .HypeBar-action {
+    grid-area: action;
+  }
+
+  .HypeBoard-row {
+    grid-template-columns: 26px minmax(0, 1fr) auto 60px;
+    gap: 8px;
+    padding: 10px;
+  }
+  .HypeBoard-best {
+    display: none;
+  }
+  .HypeHistory-row {
+    grid-template-columns: minmax(0, 1fr) auto 56px;
+    gap: 8px;
+  }
+  .HypeHistory-stake {
+    display: none;
+  }
+  .HypeBackModal-outcomes {
+    gap: 6px;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .HypeCard,
+  .Button.HypeBackButton,
+  .HypeWallet-bar span {
+    transition: none;
+  }
+}

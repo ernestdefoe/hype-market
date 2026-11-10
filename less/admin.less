@@ -1,0 +1,26 @@
+.HypeSeasonPanel-row {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+
+  .FormControl {
+    flex: 1 1 200px;
+    min-width: 0;
+  }
+}
+.HypeSeasonPanel-tick {
+  padding: 8px 12px;
+  border-radius: var(--border-radius);
+  background: var(--control-bg);
+  color: var(--control-color);
+
+  &.is-late {
+    color: var(--alert-error-color, var(--text-color));
+    background: var(--alert-error-bg, var(--control-bg));
+  }
+}
+.HypeSeasonPanel-past {
+  margin: 8px 0 0;
+  padding-left: 18px;
+  color: var(--muted-color);
+}
