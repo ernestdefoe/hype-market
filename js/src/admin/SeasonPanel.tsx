@@ -45,7 +45,8 @@ export default class SeasonPanel extends Component {
   view() {
     if (!this.seasons) return <LoadingIndicator />;
     const current = this.seasons.find((s) => s.id === this.current);
-    const date = (iso: string) => new Date(iso).toLocaleDateString();
+    // Seasons turn over at midnight UTC: show that date, not the day before in American time zones.
+    const date = (iso: string) => new Date(iso).toLocaleDateString(undefined, { timeZone: 'UTC' });
     const tick = Number(app.data.settings['ernestdefoe-hype-market.last_tick'] || 0);
     const minutes = tick ? Math.round((Date.now() / 1000 - tick) / 60) : null;
 
