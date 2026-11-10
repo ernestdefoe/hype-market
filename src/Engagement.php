@@ -12,12 +12,14 @@ use Illuminate\Support\Collection;
  * queries (replies, likes), never one per market.
  *
  * What is left out here, for every market:
- *  - anything after the market's settle time, and the discussion's first post;
+ *  - anything after the market's settle time or before it opened (posts merged
+ *    in from older discussions), and the discussion's first post;
  *  - hidden, private and (with flarum/approval) unapproved posts;
  *  - replies with almost no text ("+1", "this");
  *  - replies and likes from low-trust accounts: an unconfirmed email, fewer
- *    than `min_posts` comments, or an account younger than `min_account_days`
- *    WHEN IT ACTED (an account aged into trust doesn't bring its old activity);
+ *    than `min_posts` comments OUTSIDE this discussion (an account can't reply
+ *    its way into trust in the thread it is lifting), or an account younger than
+ *    `min_account_days` WHEN IT ACTED (aging into trust doesn't bring old activity);
  *  - likes on your own post.
  *
  * What Pricing then leaves out per market: the discussion's author and every
@@ -43,10 +45,12 @@ class Engagement
     {
         $byDiscussion = [];
         $until = [];
+        $from = [];
         foreach ($markets as $market) {
             if ($market->discussion_id) {
                 $byDiscussion[$market->discussion_id] = $market->id;
                 $until[$market->id] = $market->settles_at->getTimestamp();
+                $from[$market->id] = $market->opened_at->getTimestamp();
             }
         }
 
@@ -72,12 +76,25 @@ class Engagement
             ->where('posts.created_at', '<=', $latest)
             ->where('users.is_email_confirmed', true)
             ->where('users.comment_count', '>=', $minPosts)
-            ->get(['posts.discussion_id', 'posts.user_id', 'posts.created_at', 'posts.content', 'users.joined_at']);
+            ->get(['posts.discussion_id', 'posts.user_id', 'posts.created_at', 'posts.content', 'users.joined_at', 'users.comment_count']);
+
+        // Each member's comments in each of these discussions: they don't count toward min_posts here.
+        $inThread = [];
+        if ($minPosts > 0) {
+            foreach ($this->db->table('posts')
+                ->whereIn('discussion_id', $ids)->where('type', 'comment')->whereNull('hidden_at')->whereNotNull('user_id')
+                ->groupBy('discussion_id', 'user_id')
+                ->selectRaw('discussion_id, user_id, COUNT(*) as n')->get() as $row) {
+                $inThread[(int) $row->discussion_id][(int) $row->user_id] = (int) $row->n;
+            }
+        }
+        $established = fn (object $row, int $memberId) => (int) $row->comment_count - ($inThread[(int) $row->discussion_id][$memberId] ?? 0) >= $minPosts;
 
         foreach ($replies as $row) {
             $marketId = $byDiscussion[(int) $row->discussion_id];
             $at = Carbon::parse($row->created_at)->getTimestamp();
-            if ($at > $until[$marketId] || ! $this->trusted($row->joined_at, $at, $minAge) || ! self::substantial((string) $row->content)) {
+            if ($at > $until[$marketId] || $at < $from[$marketId] || ! $this->trusted($row->joined_at, $at, $minAge)
+                || ! $established($row, (int) $row->user_id) || ! self::substantial((string) $row->content)) {
                 continue;
             }
             $events[$marketId][] = ['t' => $at, 'u' => (int) $row->user_id, 'k' => 'r'];
@@ -95,12 +112,12 @@ class Engagement
                 ->where('post_likes.created_at', '<=', $latest)
                 ->where('users.is_email_confirmed', true)
                 ->where('users.comment_count', '>=', $minPosts)
-                ->get(['posts.discussion_id', 'post_likes.user_id', 'post_likes.created_at', 'users.joined_at']);
+                ->get(['posts.discussion_id', 'post_likes.user_id', 'post_likes.created_at', 'users.joined_at', 'users.comment_count']);
 
             foreach ($likes as $row) {
                 $marketId = $byDiscussion[(int) $row->discussion_id];
                 $at = Carbon::parse($row->created_at)->getTimestamp();
-                if ($at > $until[$marketId] || ! $this->trusted($row->joined_at, $at, $minAge)) {
+                if ($at > $until[$marketId] || $at < $from[$marketId] || ! $this->trusted($row->joined_at, $at, $minAge) || ! $established($row, (int) $row->user_id)) {
                     continue;
                 }
                 $events[$marketId][] = ['t' => $at, 'u' => (int) $row->user_id, 'k' => 'l'];
