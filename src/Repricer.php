@@ -45,15 +45,21 @@ class Repricer
 
             $history = self::history($market, $list, $until, $excluded);
 
-            // Conditional: never write over a market that settled since it was read.
-            Market::query()->whereKey($market->id)->whereNull('settled_at')->update([
-                'price' => $result['price'],
-                'participants' => $result['participants'],
-                'backers_count' => $held->count(),
-                'staked' => (int) $held->sum('stake'),
-                'history' => json_encode($history),
-                'priced_at' => $now,
-            ]);
+            $changed = abs($result['price'] - $market->price) > 0.001 || $result['participants'] !== $market->participants
+                || $held->count() !== $market->backers_count || (int) $held->sum('stake') !== $market->staked
+                || count($history) !== count($market->history ?? []);
+
+            // Only markets that moved are written. Conditional: never over one that settled since it was read.
+            if ($changed) {
+                Market::query()->whereKey($market->id)->whereNull('settled_at')->update([
+                    'price' => $result['price'],
+                    'participants' => $result['participants'],
+                    'backers_count' => $held->count(),
+                    'staked' => (int) $held->sum('stake'),
+                    'history' => json_encode($history),
+                    'priced_at' => $now,
+                ]);
+            }
             $market->price = $result['price'];
             $market->participants = $result['participants'];
             $market->backers_count = $held->count();
