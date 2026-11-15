@@ -1,0 +1,9 @@
+# Kept out of the package Composer installs: development and repo-only files.
+/.github export-ignore
+/tests export-ignore
+/screenshots export-ignore
+/js/node_modules export-ignore
+/CLAUDE.md export-ignore
+/phpstan.neon export-ignore
+/.gitattributes export-ignore
+/.gitignore export-ignore

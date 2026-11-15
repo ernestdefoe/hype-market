@@ -3,7 +3,6 @@
 namespace ErnestDefoe\HypeMarket;
 
 use Carbon\Carbon;
-use Flarum\Extension\ExtensionManager;
 use Flarum\Post\Post;
 use Illuminate\Support\Collection;
 
@@ -31,7 +30,7 @@ class Engagement
     public const MIN_REPLY_CHARS = 12;
 
     public function __construct(
-        private readonly ExtensionManager $extensions,
+        private readonly Integrations $integrations,
         private readonly Settings $settings,
     ) {
     }
@@ -43,13 +42,11 @@ class Engagement
     public function load(Collection $markets): array
     {
         $byDiscussion = [];
-        $until = [];
-        $from = [];
+        $window = [];
         foreach ($markets as $market) {
             if ($market->discussion_id) {
                 $byDiscussion[$market->discussion_id] = $market->id;
-                $until[$market->id] = $market->settles_at->getTimestamp();
-                $from[$market->id] = $market->opened_at->getTimestamp();
+                $window[$market->id] = [$market->opened_at->getTimestamp(), $market->settles_at->getTimestamp()];
             }
         }
 
@@ -59,68 +56,12 @@ class Engagement
         }
 
         $ids = array_keys($byDiscussion);
-        $latest = Carbon::createFromTimestamp(max($until));
-        $minPosts = $this->settings->minPosts();
-        $minAge = $this->settings->minAccountDays() * 86400;
-        $approval = $this->extensions->isEnabled('flarum-approval');
+        $latest = Carbon::createFromTimestamp(max(array_column($window, 1)));
+        $inThread = $this->inThread($ids);
 
-        $replies = Post::query()->toBase()
-            ->join('users', 'users.id', '=', 'posts.user_id')
-            ->whereIn('posts.discussion_id', $ids)
-            ->where('posts.type', 'comment')
-            ->where('posts.number', '>', 1)
-            ->whereNull('posts.hidden_at')
-            ->where('posts.is_private', false)
-            ->when($approval, fn ($q) => $q->where('posts.is_approved', true))
-            ->where('posts.created_at', '<=', $latest)
-            ->where('users.is_email_confirmed', true)
-            ->where('users.comment_count', '>=', $minPosts)
-            ->get(['posts.discussion_id', 'posts.user_id', 'posts.created_at', 'posts.content', 'users.joined_at', 'users.comment_count']);
-
-        // Each member's comments in each of these discussions: they don't count toward min_posts here.
-        $inThread = [];
-        if ($minPosts > 0) {
-            foreach (Post::query()->toBase()
-                ->whereIn('discussion_id', $ids)->where('type', 'comment')->whereNull('hidden_at')->whereNotNull('user_id')
-                ->groupBy('discussion_id', 'user_id')
-                ->selectRaw('discussion_id, user_id, COUNT(*) as n')->get() as $row) {
-                $inThread[(int) $row->discussion_id][(int) $row->user_id] = (int) $row->n;
-            }
-        }
-        $established = fn (object $row, int $memberId) => (int) $row->comment_count - ($inThread[(int) $row->discussion_id][$memberId] ?? 0) >= $minPosts;
-
-        foreach ($replies as $row) {
-            $marketId = $byDiscussion[(int) $row->discussion_id];
-            $at = Carbon::parse($row->created_at)->getTimestamp();
-            if ($at > $until[$marketId] || $at < $from[$marketId] || ! $this->trusted($row->joined_at, $at, $minAge)
-                || ! $established($row, (int) $row->user_id) || ! self::substantial((string) $row->content)) {
-                continue;
-            }
-            $events[$marketId][] = ['t' => $at, 'u' => (int) $row->user_id, 'k' => 'r'];
-        }
-
-        if ($this->extensions->isEnabled('flarum-likes')) {
-            $likes = Post::query()->toBase()
-                ->join('post_likes', 'post_likes.post_id', '=', 'posts.id')
-                ->join('users', 'users.id', '=', 'post_likes.user_id')
-                ->whereIn('posts.discussion_id', $ids)
-                ->whereNull('posts.hidden_at')
-                ->where('posts.is_private', false)
-                ->whereColumn('post_likes.user_id', '<>', 'posts.user_id')
-                ->whereNotNull('post_likes.created_at')
-                ->where('post_likes.created_at', '<=', $latest)
-                ->where('users.is_email_confirmed', true)
-                ->where('users.comment_count', '>=', $minPosts)
-                ->get(['posts.discussion_id', 'post_likes.user_id', 'post_likes.created_at', 'users.joined_at', 'users.comment_count']);
-
-            foreach ($likes as $row) {
-                $marketId = $byDiscussion[(int) $row->discussion_id];
-                $at = Carbon::parse($row->created_at)->getTimestamp();
-                if ($at > $until[$marketId] || $at < $from[$marketId] || ! $this->trusted($row->joined_at, $at, $minAge) || ! $established($row, (int) $row->user_id)) {
-                    continue;
-                }
-                $events[$marketId][] = ['t' => $at, 'u' => (int) $row->user_id, 'k' => 'l'];
-            }
+        $this->collect($events, $this->replies($ids, $latest), 'r', $byDiscussion, $window, $inThread);
+        if ($this->integrations->likes) {
+            $this->collect($events, $this->likes($ids, $latest), 'l', $byDiscussion, $window, $inThread);
         }
 
         foreach ($events as &$list) {
@@ -128,6 +69,104 @@ class Engagement
         }
 
         return $events;
+    }
+
+    /**
+     * Replies by confirmed members with enough posts overall (the per-thread
+     * part of that rule and the account-age rule are applied in collect()).
+     *
+     * @param list<int> $ids
+     * @return Collection<int, \stdClass>
+     */
+    private function replies(array $ids, Carbon $latest): Collection
+    {
+        return Post::query()->toBase()
+            ->join('users', 'users.id', '=', 'posts.user_id')
+            ->whereIn('posts.discussion_id', $ids)
+            ->where('posts.type', 'comment')
+            ->where('posts.number', '>', 1)
+            ->whereNull('posts.hidden_at')
+            ->where('posts.is_private', false)
+            ->when($this->integrations->approval, fn ($q) => $q->where('posts.is_approved', true))
+            ->where('posts.created_at', '<=', $latest)
+            ->where('users.is_email_confirmed', true)
+            ->where('users.comment_count', '>=', $this->settings->minPosts())
+            ->get(['posts.discussion_id', 'posts.user_id', 'posts.created_at', 'posts.content', 'users.joined_at', 'users.comment_count']);
+    }
+
+    /**
+     * Likes on visible posts, never on the liker's own post.
+     *
+     * @param list<int> $ids
+     * @return Collection<int, \stdClass>
+     */
+    private function likes(array $ids, Carbon $latest): Collection
+    {
+        return Post::query()->toBase()
+            ->join('post_likes', 'post_likes.post_id', '=', 'posts.id')
+            ->join('users', 'users.id', '=', 'post_likes.user_id')
+            ->whereIn('posts.discussion_id', $ids)
+            ->whereNull('posts.hidden_at')
+            ->where('posts.is_private', false)
+            ->whereColumn('post_likes.user_id', '<>', 'posts.user_id')
+            ->whereNotNull('post_likes.created_at')
+            ->where('post_likes.created_at', '<=', $latest)
+            ->where('users.is_email_confirmed', true)
+            ->where('users.comment_count', '>=', $this->settings->minPosts())
+            ->get(['posts.discussion_id', 'post_likes.user_id', 'post_likes.created_at', 'users.joined_at', 'users.comment_count']);
+    }
+
+    /**
+     * Each member's comments in each of these discussions: they don't count
+     * toward min_posts there, so nobody replies their way into trust.
+     *
+     * @param list<int> $ids
+     * @return array<int, array<int, int>> [discussion id][member id] => comments
+     */
+    private function inThread(array $ids): array
+    {
+        $inThread = [];
+        if ($this->settings->minPosts() > 0) {
+            foreach (Post::query()->toBase()
+                ->whereIn('discussion_id', $ids)->where('type', 'comment')->whereNull('hidden_at')->whereNotNull('user_id')
+                ->groupBy('discussion_id', 'user_id')
+                ->selectRaw('discussion_id, user_id, COUNT(*) as n')->get() as $row) {
+                $inThread[(int) $row->discussion_id][(int) $row->user_id] = (int) $row->n;
+            }
+        }
+
+        return $inThread;
+    }
+
+    /**
+     * Add the rows that pass every per-event rule to their market's events:
+     * inside the market's window, from an account trusted when it acted and
+     * established outside this discussion, and (replies) with real text.
+     *
+     * @param array<int, list<array{t: int, u: int, k: string}>> $events
+     * @param Collection<int, \stdClass> $rows
+     * @param array<int, int> $byDiscussion
+     * @param array<int, array{0: int, 1: int}> $window
+     * @param array<int, array<int, int>> $inThread
+     */
+    private function collect(array &$events, Collection $rows, string $kind, array $byDiscussion, array $window, array $inThread): void
+    {
+        $minPosts = $this->settings->minPosts();
+        $minAge = $this->settings->minAccountDays() * 86400;
+
+        foreach ($rows as $row) {
+            $marketId = $byDiscussion[(int) $row->discussion_id];
+            $memberId = (int) $row->user_id;
+            $at = Carbon::parse($row->created_at)->getTimestamp();
+            [$from, $until] = $window[$marketId];
+            $established = (int) $row->comment_count - ($inThread[(int) $row->discussion_id][$memberId] ?? 0) >= $minPosts;
+
+            if ($at < $from || $at > $until || ! $established || ! $this->trusted($row->joined_at, $at, $minAge)
+                || ($kind === 'r' && ! self::substantial((string) $row->content))) {
+                continue;
+            }
+            $events[$marketId][] = ['t' => $at, 'u' => $memberId, 'k' => $kind];
+        }
     }
 
     /** Old enough when they acted. No join date at all = not trusted. */

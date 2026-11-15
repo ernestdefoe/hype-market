@@ -4,7 +4,6 @@ namespace ErnestDefoe\HypeMarket;
 
 use Carbon\Carbon;
 use Flarum\Discussion\Discussion;
-use Flarum\Extension\ExtensionManager;
 
 /**
  * Opening markets. A discussion gets one while it is young enough to back:
@@ -16,7 +15,7 @@ class Markets
 {
     public function __construct(
         private readonly Settings $settings,
-        private readonly ExtensionManager $extensions,
+        private readonly Integrations $integrations,
     ) {
     }
 
@@ -26,7 +25,7 @@ class Markets
         return $discussion->user_id
             && ! $discussion->is_private
             && ! $discussion->hidden_at
-            && (! $this->extensions->isEnabled('flarum-approval') || (bool) ($discussion->getAttribute('is_approved') ?? true))
+            && (! $this->integrations->approval || (bool) ($discussion->getAttribute('is_approved') ?? true))
             && $discussion->created_at
             && $discussion->created_at->gt(Carbon::now()->subHours($this->settings->backingHours()));
     }
@@ -54,7 +53,7 @@ class Markets
             ->whereNotNull('user_id')
             ->whereNull('hidden_at')
             ->where('is_private', false)
-            ->when($this->extensions->isEnabled('flarum-approval'), fn ($q) => $q->where('is_approved', true))
+            ->when($this->integrations->approval, fn ($q) => $q->where('is_approved', true))
             ->whereNotIn('id', Market::query()->whereNotNull('discussion_id')->select('discussion_id'))
             ->limit(500)
             ->get();

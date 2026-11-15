@@ -6,7 +6,7 @@ import Link from 'flarum/common/components/Link';
 import type Mithril from 'mithril';
 import Sparkline from './Sparkline';
 import { openBack } from './MarketCard';
-import { call, num, price, signed, trend, until, type Market, type Wallet } from './data';
+import { call, clockText, num, price, signed, trend, trendIcon, type Market, type Wallet } from './data';
 import { pct, t, tx } from '../util';
 
 interface Attrs {
@@ -50,20 +50,13 @@ class Bar extends Component<Attrs> {
       window.setTimeout(() => m.mount(this.attrs.host, null), 0);
       return null;
     }
-    if (this.failed) {
-      return (
-        <aside className="HypeBar HypeBar--failed" aria-label={tx('bar.label')}>
-          <Icon name="fas fa-fire" /> {t('bar.failed')}
-        </aside>
-      );
-    }
+    if (this.failed) return this.failedView();
     const market = this.market;
     if (!market) return null;
 
-    const mine = market.mine;
     const settled = market.status === 'settled' || market.status === 'void';
     const direction = trend(market.change);
-    const isAuthor = !!app.session.user && market.author?.id === Number(app.session.user.id());
+    const mine = market.mine;
 
     return (
       <aside className={`HypeBar HypeTrend--${direction}`} aria-label={tx('bar.label')}>
@@ -74,7 +67,7 @@ class Bar extends Component<Attrs> {
         <div className="HypeBar-quote">
           <strong className="HypeBar-price">{price(market.price)}</strong>
           <span className="HypeBar-change">
-            <Icon name={direction === 'down' ? 'fas fa-caret-down' : direction === 'up' ? 'fas fa-caret-up' : 'fas fa-minus'} /> {pct(market.change)}
+            <Icon name={trendIcon(direction)} /> {pct(market.change)}
           </span>
         </div>
         <Sparkline
@@ -87,35 +80,11 @@ class Bar extends Component<Attrs> {
             <Icon name="fas fa-users" /> {t('card.backers', { count: market.backers })}
           </span>
           <span>
-            <Icon name="far fa-clock" />{' '}
-            {settled
-              ? t(market.status === 'void' ? 'card.void' : 'card.settled')
-              : market.status === 'open'
-                ? t('card.closes', { time: until(market.closesAt) })
-                : t('card.settles', { time: until(market.settlesAt) })}
+            <Icon name="far fa-clock" /> {clockText(market)}
           </span>
         </div>
         <div className="HypeBar-action">
-          {mine ? (
-            <span className={'HypeMine HypeTrend--' + trend(mine.profit)}>
-              <span className="HypeMine-label">{t('card.you_backed', { n: num(mine.stake), price: price(mine.entryPrice) })}</span>
-              <strong className="HypeMine-value">
-                {settled
-                  ? t('bar.paid', { n: num(mine.value), profit: signed(mine.profit) })
-                  : t('bar.worth', { n: num(mine.value), profit: signed(mine.profit) })}
-              </strong>
-            </span>
-          ) : isAuthor ? (
-            <span className="HypeBar-note">{market.status === 'open' ? t('bar.yours') : null}</span>
-          ) : market.status === 'open' && (market.canBack || !this.wallet) ? (
-            <Button
-              className="Button Button--primary HypeBackButton"
-              icon="fas fa-fire"
-              onclick={() => openBack(market, this.wallet, (mk, w) => this.backed(mk, w))}
-            >
-              {t('card.back')}
-            </Button>
-          ) : null}
+          {this.action(market, settled)}
           {this.canModerate && !settled ? (
             <Button className="Button Button--link HypeBar-void" onclick={() => this.callOff()}>
               {t('bar.call_off')}
@@ -124,6 +93,43 @@ class Bar extends Component<Attrs> {
         </div>
       </aside>
     );
+  }
+
+  /** The bar couldn't load: one quiet line instead of the market. */
+  failedView() {
+    return (
+      <aside className="HypeBar HypeBar--failed" aria-label={tx('bar.label')}>
+        <Icon name="fas fa-fire" /> {t('bar.failed')}
+      </aside>
+    );
+  }
+
+  /** The member's own position, a note for the author, or Back it. */
+  action(market: Market, settled: boolean) {
+    const mine = market.mine;
+    if (mine) {
+      return (
+        <span className={'HypeMine HypeTrend--' + trend(mine.profit)}>
+          <span className="HypeMine-label">{t('card.you_backed', { n: num(mine.stake), price: price(mine.entryPrice) })}</span>
+          <strong className="HypeMine-value">{t(settled ? 'bar.paid' : 'bar.worth', { n: num(mine.value), profit: signed(mine.profit) })}</strong>
+        </span>
+      );
+    }
+    if (app.session.user && market.author?.id === Number(app.session.user.id())) {
+      return <span className="HypeBar-note">{market.status === 'open' ? t('bar.yours') : null}</span>;
+    }
+    if (market.status === 'open' && (market.canBack || !this.wallet)) {
+      return (
+        <Button
+          className="Button Button--primary HypeBackButton"
+          icon="fas fa-fire"
+          onclick={() => openBack(market, this.wallet, (mk, w) => this.backed(mk, w))}
+        >
+          {t('card.back')}
+        </Button>
+      );
+    }
+    return null;
   }
 
   backed(market: Market, wallet: Wallet) {

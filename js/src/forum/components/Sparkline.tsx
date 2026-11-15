@@ -11,6 +11,27 @@ interface Attrs {
 let gradients = 0;
 
 /**
+ * Where the line and the entry marker go in the 100×30 box: time across, price up,
+ * with the member's entry price included in the vertical range so its marker fits.
+ */
+function geometry(raw: Array<[number, number]>, entry: { at: number; price: number } | null) {
+  const points = raw.length ? raw : [[0, 10] as [number, number]];
+  const line = points.length === 1 ? [points[0], [points[0][0] + 1, points[0][1]] as [number, number]] : points;
+  const t0 = line[0][0];
+  const t1 = Math.max(t0 + 1, line[line.length - 1][0]);
+  const prices = line.map((p) => p[1]).concat(entry ? [entry.price] : []);
+  const lo = Math.min(...prices);
+  const hi = Math.max(...prices, lo + 1);
+  const x = (at: number) => ((at - t0) / (t1 - t0)) * 100;
+  const y = (p: number) => 28 - ((p - lo) / (hi - lo)) * 24;
+
+  return {
+    coords: line.map(([at, p]) => `${x(at).toFixed(2)},${y(p).toFixed(2)}`),
+    entryX: entry && entry.at >= t0 ? x(Math.min(entry.at, t1)) : null,
+  };
+}
+
+/**
  * The price line: an SVG polyline over an area fill, scaled to its own box
  * (preserveAspectRatio none, non-scaling stroke). Colour comes from
  * currentColor, so the trend class and any theme decide it.
@@ -19,17 +40,7 @@ export default class Sparkline extends Component<Attrs> {
   id = `HypeSpark-${++gradients}`;
 
   view() {
-    const points = this.attrs.points.length ? this.attrs.points : [[0, 10] as [number, number]];
-    const line = points.length === 1 ? [points[0], [points[0][0] + 1, points[0][1]] as [number, number]] : points;
-    const t0 = line[0][0];
-    const t1 = Math.max(t0 + 1, line[line.length - 1][0]);
-    const prices = line.map((p) => p[1]).concat(this.attrs.entry ? [this.attrs.entry.price] : []);
-    const lo = Math.min(...prices);
-    const hi = Math.max(...prices, lo + 1);
-    const x = (at: number) => ((at - t0) / (t1 - t0)) * 100;
-    const y = (p: number) => 28 - ((p - lo) / (hi - lo)) * 24;
-    const coords = line.map(([at, p]) => `${x(at).toFixed(2)},${y(p).toFixed(2)}`);
-    const entry = this.attrs.entry;
+    const { coords, entryX } = geometry(this.attrs.points, this.attrs.entry ?? null);
 
     return (
       <svg
@@ -57,11 +68,11 @@ export default class Sparkline extends Component<Attrs> {
           stroke-linejoin="round"
           stroke-linecap="round"
         />
-        {entry && entry.at >= t0 ? (
+        {entryX !== null ? (
           <line
             className="HypeSparkline-entry"
-            x1={x(Math.min(entry.at, t1))}
-            x2={x(Math.min(entry.at, t1))}
+            x1={entryX}
+            x2={entryX}
             y1="0"
             y2="30"
             stroke="currentColor"

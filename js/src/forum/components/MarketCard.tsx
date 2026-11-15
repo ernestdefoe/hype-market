@@ -6,7 +6,7 @@ import Link from 'flarum/common/components/Link';
 import Avatar from 'flarum/common/components/Avatar';
 import humanTime from 'flarum/common/helpers/humanTime';
 import Sparkline from './Sparkline';
-import { discussionUrl, fakeUser, num, price, signed, times, trend, until, type Market, type Wallet } from './data';
+import { discussionUrl, fakeUser, num, price, signed, times, trend, type Market, type Wallet, clockText, trendIcon } from './data';
 import { pct, t } from '../util';
 
 interface Attrs {
@@ -43,32 +43,11 @@ export default class MarketCard extends Component<Attrs> {
       <article className={`HypeCard HypeTrend--${direction}` + (mine ? ' HypeCard--mine' : '') + (settled ? ' HypeCard--settled' : '')}>
         <div className="HypeCard-main">
           {rank ? <span className={'HypeCard-rank' + (rank <= 3 ? ` is-top-${rank}` : '')}>{rank}</span> : null}
-          <div className="HypeCard-heading">
-            {url ? (
-              <Link className="HypeCard-title" href={url}>
-                {market.discussion!.title}
-              </Link>
-            ) : (
-              <span className="HypeCard-title HypeCard-title--gone">{t('card.gone')}</span>
-            )}
-            <div className="HypeCard-meta">
-              {market.author ? (
-                <span className="HypeCard-author">
-                  <Avatar user={fakeUser(market.author)} className="HypeAvatar" /> {market.author.displayName}
-                </span>
-              ) : null}
-              <span>{humanTime(new Date(market.openedAt))}</span>
-              {market.discussion ? (
-                <span>
-                  <Icon name="far fa-comment" /> {num(Math.max(0, market.discussion.commentCount - 1))}
-                </span>
-              ) : null}
-            </div>
-          </div>
+          {this.heading(market, url)}
           <div className="HypeCard-quote">
             <span className="HypeCard-price">{price(settled ? (mine?.exitPrice ?? market.price) : market.price)}</span>
             <span className="HypeCard-change">
-              <Icon name={direction === 'down' ? 'fas fa-caret-down' : direction === 'up' ? 'fas fa-caret-up' : 'fas fa-minus'} /> {pct(change)}
+              <Icon name={trendIcon(direction)} /> {pct(change)}
             </span>
           </div>
         </div>
@@ -86,16 +65,39 @@ export default class MarketCard extends Component<Attrs> {
           </span>
           {market.staked ? <span className="HypeCard-stat">{t('card.staked', { n: num(market.staked) })}</span> : null}
           <span className="HypeCard-stat HypeCard-clock">
-            <Icon name="far fa-clock" />{' '}
-            {settled
-              ? t(market.status === 'void' ? 'card.void' : 'card.settled')
-              : market.status === 'open'
-                ? t('card.closes', { time: until(market.closesAt) })
-                : t('card.settles', { time: until(market.settlesAt) })}
+            <Icon name="far fa-clock" /> {clockText(market)}
           </span>
           <span className="HypeCard-action">{mine ? this.mine(market, settled) : this.backButton(market)}</span>
         </div>
       </article>
+    );
+  }
+
+  /** The discussion's title (or a note that it's gone), its author, age and replies. */
+  heading(market: Market, url: string | null) {
+    return (
+      <div className="HypeCard-heading">
+        {url ? (
+          <Link className="HypeCard-title" href={url}>
+            {market.discussion!.title}
+          </Link>
+        ) : (
+          <span className="HypeCard-title HypeCard-title--gone">{t('card.gone')}</span>
+        )}
+        <div className="HypeCard-meta">
+          {market.author ? (
+            <span className="HypeCard-author">
+              <Avatar user={fakeUser(market.author)} className="HypeAvatar" /> {market.author.displayName}
+            </span>
+          ) : null}
+          <span>{humanTime(new Date(market.openedAt))}</span>
+          {market.discussion ? (
+            <span>
+              <Icon name="far fa-comment" /> {num(Math.max(0, market.discussion.commentCount - 1))}
+            </span>
+          ) : null}
+        </div>
+      </div>
     );
   }
 

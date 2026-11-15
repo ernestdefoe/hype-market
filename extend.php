@@ -18,6 +18,7 @@ use ErnestDefoe\HypeMarket\Gdpr\HypeData;
 use ErnestDefoe\HypeMarket\Http\PageContent;
 use ErnestDefoe\HypeMarket\Listener\OpenMarket;
 use ErnestDefoe\HypeMarket\Notification;
+use ErnestDefoe\HypeMarket\Provider;
 use Flarum\Api\Resource\DiscussionResource;
 use Flarum\Api\Resource\ForumResource;
 use Flarum\Discussion\Event\Started;
@@ -98,8 +99,18 @@ return [
             $event->everyFiveMinutes()->withoutOverlapping();
         }),
 
-    // A member's calls, season totals and spending in their data export; erased with them.
+    // Optional extensions, wired only while they're enabled: likes move prices, unapproved posts are
+    // left out, and a member's calls, season totals and spending are in their data export.
+    (new Extend\ServiceProvider())
+        ->register(Provider\IntegrationsProvider::class),
+
     (new Extend\Conditional())
+        ->whenExtensionEnabled('flarum-likes', fn () => [
+            (new Extend\ServiceProvider())->register(Provider\LikesProvider::class),
+        ])
+        ->whenExtensionEnabled('flarum-approval', fn () => [
+            (new Extend\ServiceProvider())->register(Provider\ApprovalProvider::class),
+        ])
         ->whenExtensionEnabled('flarum-gdpr', fn () => [
             (new UserData())->addType(HypeData::class),
         ]),

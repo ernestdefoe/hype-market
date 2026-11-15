@@ -64,7 +64,6 @@ class Settler
 
             /** @var Collection<int, Position> $positions */
             $positions = $market->positions()->orderBy('created_at')->orderBy('id')->get();
-            $settleAt = $market->settles_at->getTimestamp();
             $final = ['price' => $market->price, 'participants' => $market->participants];
 
             if ($void) {
@@ -72,21 +71,7 @@ class Settler
                     $this->write($position, $position->entry_price, 1.0, [], $now);
                 }
             } else {
-                $events = $this->engagement->load(new Collection([$market]))[$market->id] ?? [];
-                $excluded = Repricer::excluded($market, $positions->pluck('user_id')->all());
-                $final = Pricing::at($events, $settleAt, $excluded);
-                $capped = $this->capped($positions, $market->id);
-                $min = $this->settings->minParticipants();
-
-                foreach ($positions as $position) {
-                    $mine = $excluded + array_fill_keys($capped[$position->user_id.':'.$position->season_id] ?? [], true);
-                    $entryAt = $position->created_at->getTimestamp();
-                    $entry = Pricing::at($events, $entryAt, $mine)['price'];
-                    $exit = Pricing::at($events, $settleAt, $mine, $entryAt);
-                    $multiplier = Pricing::multiplier($entry, $exit['price'], $exit['participants'], $min, $position->loss);
-                    $position->exit_price = $exit['price'];
-                    $this->write($position, $entry, $multiplier, $multiplier > 1 ? $exit['contributors'] : [], $now);
-                }
+                $final = $this->pay($market, $positions, $now);
             }
 
             $market->price = $final['price'];
@@ -108,6 +93,37 @@ class Settler
         $this->notify($market, $positions, $void);
 
         return true;
+    }
+
+    /**
+     * Pay every position from the engagement up to the settle time. Each one's
+     * entry and exit are read with the author, every backer and the members
+     * already capped for that backer this season left out.
+     *
+     * @param Collection<int, Position> $positions
+     * @return array{price: float, participants: int} the market's final numbers
+     */
+    private function pay(Market $market, Collection $positions, Carbon $now): array
+    {
+        $settleAt = $market->settles_at->getTimestamp();
+        $events = $this->engagement->load(new Collection([$market]))[$market->id] ?? [];
+        $excluded = Repricer::excluded($market, $positions->pluck('user_id')->all());
+        $capped = $this->capped($positions, $market->id);
+        $min = $this->settings->minParticipants();
+
+        foreach ($positions as $position) {
+            $mine = $excluded + array_fill_keys($capped[$position->user_id.':'.$position->season_id] ?? [], true);
+            $entryAt = $position->created_at->getTimestamp();
+            $entry = Pricing::at($events, $entryAt, $mine)['price'];
+            $exit = Pricing::at($events, $settleAt, $mine, $entryAt);
+            $multiplier = Pricing::multiplier($entry, $exit['price'], $exit['participants'], $min, $position->loss);
+            $position->exit_price = $exit['price'];
+            $this->write($position, $entry, $multiplier, $multiplier > 1 ? $exit['contributors'] : [], $now);
+        }
+
+        $final = Pricing::at($events, $settleAt, $excluded);
+
+        return ['price' => $final['price'], 'participants' => $final['participants']];
     }
 
     private function write(Position $position, float $entry, float $multiplier, array $contributors, Carbon $now): void

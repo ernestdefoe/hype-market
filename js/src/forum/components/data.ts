@@ -1,7 +1,7 @@
 import app from 'flarum/forum/app';
 import extractText from 'flarum/common/utils/extractText';
 import stringToColor from 'flarum/common/utils/stringToColor';
-import { tx } from '../util';
+import { t, tx } from '../util';
 
 /*
  * Talking to the server, the types and the formatting: only the lazy chunk
@@ -138,6 +138,17 @@ export function until(iso: string): string {
 
 /** The forum's current loss share for new calls, in percent (0 = nobody loses). */
 export const lossPercent = (): number => Number(app.forum.attribute('hypeLoss') || 0);
+
+/** The market's clock line: when backing closes, when it settles, or how it ended. */
+export function clockText(market: Market) {
+  if (market.status === 'settled') return t('card.settled');
+  if (market.status === 'void') return t('card.void');
+  return market.status === 'open' ? t('card.closes', { time: until(market.closesAt) }) : t('card.settles', { time: until(market.settlesAt) });
+}
+
+/** The caret for a trend. */
+export const trendIcon = (direction: string) =>
+  direction === 'down' ? 'fas fa-caret-down' : direction === 'up' ? 'fas fa-caret-up' : 'fas fa-minus';
 
 /** "up", "down" or "flat": the colour a change is shown in. */
 export const trend = (change: number) => (change > 0.005 ? 'up' : change < -0.005 ? 'down' : 'flat');
