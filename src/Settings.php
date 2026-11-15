@@ -22,6 +22,8 @@ final class Settings
     public const SEASON_MODE = self::PREFIX.'season_mode';
     /** Percent of its stake a call loses if the discussion stays flat. 0 = nobody loses. */
     public const LOSS = self::PREFIX.'loss_percent';
+    /** Where Scores::heal() got to: "<settled_at unix>|<position id>". */
+    public const HEAL_CURSOR = self::PREFIX.'heal_cursor';
     /** Stamped by every hype:tick, so the admin page can say when the scheduler last ran. */
     public const LAST_TICK = self::PREFIX.'last_tick';
 
@@ -120,6 +122,19 @@ final class Settings
     public function stampTick(int $time): void
     {
         $this->settings->set(self::LAST_TICK, (string) $time);
+    }
+
+    /** @return array{0: \Carbon\Carbon, 1: int} the last settled position heal() has recounted */
+    public function healCursor(): array
+    {
+        [$at, $id] = array_pad(explode('|', (string) $this->settings->get(self::HEAL_CURSOR)), 2, '0');
+
+        return [\Carbon\Carbon::createFromTimestamp((int) $at), (int) $id];
+    }
+
+    public function moveHealCursor(\Carbon\Carbon $at, int $id): void
+    {
+        $this->settings->set(self::HEAL_CURSOR, $at->getTimestamp().'|'.$id);
     }
 
     public function lastTick(): ?int

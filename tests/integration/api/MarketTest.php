@@ -767,11 +767,74 @@ class MarketTest extends TestCase
         $lock->release();
 
         $scores = $this->app()->getContainer()->make(\ErnestDefoe\HypeMarket\Scores::class);
+        $this->assertSame(0, $scores->heal(), 'heal stays a minute behind, so a settlement still being written is never skipped');
+        Carbon::setTestNow(Carbon::parse(self::NOW)->addHours(72)->addMinutes(2));
         $this->assertSame(1, $scores->heal());
         $score = Score::query()->where('user_id', self::BO)->firstOrFail();
         $this->assertSame(1, $score->settled);
         $this->assertSame($this->position(self::BO)->profit, $score->profit);
         $this->assertSame(0, $scores->heal(), 'nothing left to recount');
+    }
+
+    #[Test]
+    public function heal_reads_only_new_settlements_in_chunks_and_never_twice(): void
+    {
+        $this->discussions([50, 51]);
+        foreach ([1, 50, 51] as $id) {
+            $this->backOk(self::BO, 20, $id);
+            $this->reply(self::DEE, 10, 'Dee has thoughts on this one as well.', $id);
+            $this->reply(self::ELI, 11, 'Eli has thoughts on this one as well.', $id);
+        }
+
+        // Every recount at settle time is skipped (bo's account busy), leaving a backlog of three.
+        Carbon::setTestNow(Carbon::parse(self::NOW)->addHours(72));
+        $lock = $this->holdLock('account.'.self::BO);
+        $settler = $this->app()->getContainer()->make(Settler::class);
+        foreach ([1, 50, 51] as $id) {
+            $this->assertTrue($settler->settle($this->market($id)->id));
+        }
+        $lock->release();
+        $this->assertNull(Score::query()->where('user_id', self::BO)->first());
+
+        Carbon::setTestNow(Carbon::parse(self::NOW)->addHours(72)->addMinutes(2));
+        $scores = $this->app()->getContainer()->make(\ErnestDefoe\HypeMarket\Scores::class);
+        \ErnestDefoe\HypeMarket\Scores::$healChunk = 1;
+        try {
+            $read = 0;
+            $this->database()->listen(function ($query) use (&$read) {
+                if (str_contains($query->sql, 'hype_positions') && str_contains($query->sql, 'limit 1')) {
+                    $read++;
+                }
+            });
+            // One position per run: the total is right after the first, and complete after the third.
+            $this->assertSame(1, $scores->heal());
+            $this->assertSame(3, Score::query()->where('user_id', self::BO)->value('settled'));
+            $this->assertSame(1, $scores->heal());
+            $this->assertSame(1, $scores->heal());
+            $this->assertSame(0, $scores->heal(), 'the cursor is past every settled position');
+            $this->assertSame(4, $read);
+        } finally {
+            \ErnestDefoe\HypeMarket\Scores::$healChunk = 500;
+        }
+        $this->assertSame((int) Position::query()->where('user_id', self::BO)->sum('profit'), Score::query()->where('user_id', self::BO)->value('profit'));
+    }
+
+    #[Test]
+    public function heal_does_not_move_past_a_member_it_could_not_recount(): void
+    {
+        $this->backOk(self::BO, 50);
+        $this->reply(self::DEE, 10);
+        $this->reply(self::ELI, 20);
+        $this->assertTrue($this->settle());
+        Score::query()->where('user_id', self::BO)->delete();
+
+        Carbon::setTestNow(Carbon::parse(self::NOW)->addHours(72)->addMinutes(2));
+        $scores = $this->app()->getContainer()->make(\ErnestDefoe\HypeMarket\Scores::class);
+        $lock = $this->holdLock('account.'.self::BO);
+        $this->assertSame(0, $scores->heal(), 'busy: nothing written, cursor stays');
+        $lock->release();
+        $this->assertSame(1, $scores->heal());
+        $this->assertSame(1, Score::query()->where('user_id', self::BO)->value('settled'));
     }
 
     #[Test]

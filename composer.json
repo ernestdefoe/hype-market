@@ -65,6 +65,11 @@
         "flarum/phpstan": "^2.0",
         "flarum/testing": "^2.0"
     },
+    "suggest": {
+        "flarum/likes": "Likes on a discussion's posts count toward its hype price.",
+        "flarum/approval": "Posts and discussions waiting for approval are left out of prices until approved.",
+        "flarum/gdpr": "A member's calls, season totals and spending are included in their data export and removed when their data is erased."
+    },
     "scripts": {
         "test": [
             "@test:integration"

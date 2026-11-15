@@ -18,15 +18,18 @@ use Carbon\Carbon;
  */
 class Scores
 {
-    /** Seasons heal() still checks after they end: positions settle up to a window after the turn. */
-    public const HEAL_DAYS = 30;
+    /** Most settled positions one heal() reads; the rest wait for the next tick. */
+    public static int $healChunk = 500;
 
-    public function __construct(private readonly Locks $locks)
-    {
+    public function __construct(
+        private readonly Locks $locks,
+        private readonly Settings $settings,
+    ) {
     }
 
     /** @param list<array{0: int, 1: int}> $pairs [seasonId, userId] */
-    public function rebuild(array $pairs): void
+    /** @return bool false when a member's lock was busy and nothing was written (heal() tries again) */
+    public function rebuild(array $pairs): bool
     {
         $bySeason = [];
         foreach ($pairs as [$seasonId, $userId]) {
@@ -36,54 +39,65 @@ class Scores
         }
 
         if (! $bySeason) {
-            return;
+            return true;
         }
 
         $all = array_values(array_unique(array_merge(...array_map('array_keys', array_values($bySeason)))));
         sort($all);
 
-        $this->locks->attempt(
+        return $this->locks->attempt(
             array_map(fn (int $id) => 'account.'.$id, $all),
             fn () => Score::query()->getConnection()->transaction(function () use ($bySeason, $all) {
                 Account::query()->insertOrIgnore(array_map(fn ($id) => ['user_id' => $id, 'spent' => 0, 'backs' => 0], $all));
                 Account::query()->whereIn('user_id', $all)->orderBy('user_id')->lockForUpdate()->get(['user_id']);
 
                 $this->write($bySeason);
+
+                return true;
             }),
-            fn () => null,
+            fn () => false,
         );
     }
 
     /**
-     * Recount every member whose season total doesn't match their settled
-     * calls (a rebuild skipped on a busy lock, a crash between settling and
-     * recounting, erased positions). Two queries to find them; the tick runs it.
+     * Recount the members whose calls settled since the last heal: whoever a
+     * busy lock or a crash between settling and recounting left behind. A
+     * cursor (settled_at, id) moves forward only once their recount is
+     * written, and each run reads at most HEAL_CHUNK positions, so the work
+     * follows new settlements, never the size of the forum. The tick runs it.
      *
      * @return int how many members were recounted
      */
     public function heal(): int
     {
-        $seasons = Season::query()->where(fn ($q) => $q->whereNull('ended_at')->orWhere('ended_at', '>', Carbon::now()->subDays(self::HEAL_DAYS)))->pluck('id')->all();
-        if (! $seasons) {
+        [$at, $id] = $this->settings->healCursor();
+
+        $rows = Position::query()
+            ->whereNotNull('settled_at')
+            // A minute behind: every settlement written in a given second has finished by then, so the
+            // cursor never passes a position a concurrent call-off was still writing.
+            ->where('settled_at', '<=', Carbon::now()->subMinute())
+            ->where(fn ($q) => $q->where('settled_at', '>', $at)->orWhere(fn ($q) => $q->where('settled_at', $at)->where('id', '>', $id)))
+            ->orderBy('settled_at')->orderBy('id')
+            ->limit(self::$healChunk)
+            ->get(['id', 'season_id', 'user_id', 'settled_at']);
+        if ($rows->isEmpty()) {
             return 0;
         }
 
-        $settled = Position::query()->whereIn('season_id', $seasons)->whereNotNull('settled_at')
-            ->groupBy('season_id', 'user_id')->selectRaw('season_id, user_id, COUNT(*) as n')->get()
-            ->mapWithKeys(fn (Position $row) => [$row->season_id.':'.$row->user_id => (int) $row->getAttribute('n')]);
-        $counted = Score::query()->whereIn('season_id', $seasons)->get(['season_id', 'user_id', 'settled'])
-            ->mapWithKeys(fn (Score $s) => [$s->season_id.':'.$s->user_id => $s->settled]);
-
-        $stale = [];
-        foreach ($settled->union($counted) as $key => $_) {
-            if (($settled[$key] ?? 0) !== ($counted[$key] ?? 0)) {
-                [$season, $user] = array_map('intval', explode(':', (string) $key));
-                $stale[] = [$season, $user];
-            }
+        $pairs = [];
+        foreach ($rows as $row) {
+            $pairs[$row->season_id.':'.$row->user_id] = [(int) $row->season_id, (int) $row->user_id];
         }
-        $this->rebuild($stale);
+        if (! $this->rebuild(array_values($pairs))) {
+            return 0;
+        }
 
-        return count($stale);
+        /** @var Position $last */
+        $last = $rows->last();
+        $this->settings->moveHealCursor($last->settled_at, (int) $last->id);
+
+        return count($pairs);
     }
 
     /** @param array<int, array<int, true>> $bySeason */
