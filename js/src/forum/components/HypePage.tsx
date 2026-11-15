@@ -31,7 +31,6 @@ import { t, tx } from '../util';
  * so any theme dresses it.
  */
 
-declare const m: Mithril.Static;
 declare const flarum: any;
 
 type Tab = 'hot' | 'portfolio' | 'leaderboard';
@@ -59,6 +58,8 @@ export default class HypePage extends Page {
   portfolio: Portfolio | null = null;
   board: Board | null = null;
   boardSeason = '';
+  /** The last load failed: the tab shows a retry instead of an empty list. */
+  failed = false;
   private ticket = 0;
 
   oninit(vnode: Mithril.Vnode) {
@@ -86,28 +87,46 @@ export default class HypePage extends Page {
   loadMarkets() {
     const ticket = ++this.ticket;
     this.markets = null;
-    call<{ markets: Market[]; wallet: Wallet | null }>('GET', '/markets', { sort: this.sort }).then((res) => {
-      if (ticket !== this.ticket) return;
-      this.markets = res.markets;
-      this.wallet = res.wallet;
-      m.redraw();
-    });
+    this.failed = false;
+    call<{ markets: Market[]; wallet: Wallet | null }>('GET', '/markets', { sort: this.sort }, true)
+      .then((res) => {
+        if (ticket !== this.ticket) return;
+        this.markets = res.markets;
+        this.wallet = res.wallet;
+      })
+      .catch(() => {
+        if (ticket === this.ticket) this.fail();
+      })
+      .finally(() => m.redraw());
   }
 
   loadPortfolio() {
-    call<Portfolio>('GET', '/portfolio').then((res) => {
-      this.portfolio = res;
-      this.wallet = res.wallet;
-      m.redraw();
-    });
+    call<Portfolio>('GET', '/portfolio', undefined, true)
+      .then((res) => {
+        this.portfolio = res;
+        this.wallet = res.wallet;
+      })
+      .catch(() => {
+        if (this.tab === 'portfolio') this.fail();
+      })
+      .finally(() => m.redraw());
   }
 
   loadBoard() {
     this.board = null;
-    call<Board>('GET', '/leaderboard', this.boardSeason ? { season: this.boardSeason } : undefined).then((res) => {
-      this.board = res;
-      m.redraw();
-    });
+    this.failed = false;
+    call<Board>('GET', '/leaderboard', this.boardSeason ? { season: this.boardSeason } : undefined, true)
+      .then((res) => {
+        this.board = res;
+      })
+      .catch(() => this.fail())
+      .finally(() => m.redraw());
+  }
+
+  /** A load failed: say so once, and let the tab offer a retry. */
+  fail() {
+    this.failed = true;
+    app.alerts.show({ type: 'error' }, t('page.load_failed'));
   }
 
   /** A back from any card: update it everywhere it shows, and the wallet. */
@@ -121,6 +140,7 @@ export default class HypePage extends Page {
   switchTab(tab: Tab) {
     if (tab === this.tab) return;
     this.tab = tab;
+    this.failed = false;
     window.history.replaceState(window.history.state, '', app.route('hype') + (tab === 'hot' ? '' : '?tab=' + tab));
     this.load();
   }
@@ -158,7 +178,7 @@ export default class HypePage extends Page {
           ))}
         </nav>
 
-        {this.tab === 'hot' ? this.hotView() : this.tab === 'portfolio' ? this.portfolioView() : this.boardView()}
+        {this.failed ? this.retryView() : this.tab === 'hot' ? this.hotView() : this.tab === 'portfolio' ? this.portfolioView() : this.boardView()}
       </PageStructure>
     );
   }
@@ -231,7 +251,7 @@ export default class HypePage extends Page {
                 market={market}
                 wallet={this.wallet}
                 rank={this.sort === 'hot' ? i + 1 : undefined}
-                onback={(mk, w) => this.backed(mk, w)}
+                onback={(mk: Market, w: Wallet) => this.backed(mk, w)}
               />
             ))}
           </div>
@@ -251,7 +271,7 @@ export default class HypePage extends Page {
         {p.open.length ? (
           <div className="HypePage-list">
             {p.open.map((market) => (
-              <MarketCard key={market.id} market={market} wallet={this.wallet} onback={(mk, w) => this.backed(mk, w)} />
+              <MarketCard key={market.id} market={market} wallet={this.wallet} onback={(mk: Market, w: Wallet) => this.backed(mk, w)} />
             ))}
           </div>
         ) : (
@@ -344,6 +364,18 @@ export default class HypePage extends Page {
         </span>
         <strong className={'HypeBoard-profit HypeTrend--' + trend(row.profit)}>{signed(row.profit)}</strong>
       </li>
+    );
+  }
+
+  retryView() {
+    return (
+      <div className="HypePage-empty">
+        <Icon name="fas fa-plug-circle-exclamation" />
+        <p>{t('page.load_failed')}</p>
+        <Button className="Button" icon="fas fa-rotate-right" onclick={() => this.load()}>
+          {t('page.retry')}
+        </Button>
+      </div>
     );
   }
 

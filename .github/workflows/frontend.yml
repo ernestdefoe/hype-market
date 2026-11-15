@@ -1,0 +1,23 @@
+name: Hype Market JS
+
+on: [workflow_dispatch, push, pull_request]
+
+jobs:
+  run:
+    uses: flarum/framework/.github/workflows/REUSABLE_frontend.yml@2.x
+    with:
+      enable_bundlewatch: false
+      enable_prettier: true
+      # check-typings: js/src against core's typings in vendor/. Hype Market
+      # publishes no typings of its own, so nothing to build or measure.
+      enable_typescript: true
+      build_typings_script: ''
+      type_coverage_script: ''
+
+      frontend_directory: ./js
+      backend_directory: .
+      js_package_manager: npm
+      # Checks only: js/dist is committed by hand and released from main, so
+      # the build is never committed back. Nothing is ever pushed to this
+      # branch name, which keeps the workflow's commit step switched off.
+      main_git_branch: never-commit-built-assets

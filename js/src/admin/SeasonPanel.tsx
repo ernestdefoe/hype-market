@@ -5,8 +5,6 @@ import LoadingIndicator from 'flarum/common/components/LoadingIndicator';
 import extractText from 'flarum/common/utils/extractText';
 import type Mithril from 'mithril';
 
-declare const m: Mithril.Static;
-
 const t = (key: string, params: Record<string, any> = {}) => app.translator.trans(`ernestdefoe-hype-market.admin.season.${key}`, params);
 
 interface Season {
@@ -33,13 +31,17 @@ export default class SeasonPanel extends Component {
   }
 
   load() {
-    app.request<any>({ method: 'GET', url: app.forum.attribute('apiUrl') + '/hype/leaderboard?limit=3' }).then((board) => {
-      this.seasons = board.seasons;
-      this.current = board.currentSeasonId;
-      this.leaders = board.rows;
-      this.name = '';
-      m.redraw();
-    });
+    app
+      .request<any>({ method: 'GET', url: app.forum.attribute('apiUrl') + '/hype/leaderboard?limit=3' })
+      .then((board) => {
+        this.seasons = board.seasons;
+        this.current = board.currentSeasonId;
+        this.leaders = board.rows;
+        this.name = '';
+      })
+      // Core has shown the error; the box shows an empty season list instead of a spinner forever.
+      .catch(() => (this.seasons = []))
+      .finally(() => m.redraw());
   }
 
   view() {
@@ -98,7 +100,8 @@ export default class SeasonPanel extends Component {
         app.alerts.show({ type: 'success' }, t('ended'));
         this.load();
       })
-      .catch(() => {})
+      // Core has shown why; read the seasons again so the box shows what is true now.
+      .catch(() => this.load())
       .finally(() => {
         this.busy = false;
         m.redraw();

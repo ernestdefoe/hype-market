@@ -9,8 +9,6 @@ import { openBack } from './MarketCard';
 import { call, num, price, signed, trend, until, type Market, type Wallet } from './data';
 import { pct, t, tx } from '../util';
 
-declare const m: Mithril.Static;
-
 interface Attrs {
   discussionId: number;
   host: Element;
@@ -29,6 +27,8 @@ class Bar extends Component<Attrs> {
   wallet: Wallet | null = null;
   canModerate = false;
   loaded = false;
+  /** The bar couldn't load: it says so, and the post reads as normal. */
+  failed = false;
 
   oninit(vnode: Mithril.Vnode<Attrs, this>) {
     super.oninit(vnode);
@@ -38,7 +38,7 @@ class Bar extends Component<Attrs> {
         this.wallet = res.wallet;
         this.canModerate = res.canModerate;
       })
-      .catch(() => {})
+      .catch(() => (this.failed = true))
       .finally(() => {
         this.loaded = true;
         m.redraw();
@@ -49,6 +49,13 @@ class Bar extends Component<Attrs> {
     if (!this.attrs.host.isConnected) {
       window.setTimeout(() => m.mount(this.attrs.host, null), 0);
       return null;
+    }
+    if (this.failed) {
+      return (
+        <aside className="HypeBar HypeBar--failed" aria-label={tx('bar.label')}>
+          <Icon name="fas fa-fire" /> {t('bar.failed')}
+        </aside>
+      );
     }
     const market = this.market;
     if (!market) return null;

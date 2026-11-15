@@ -4,7 +4,7 @@ import Button from 'flarum/common/components/Button';
 import Icon from 'flarum/common/components/Icon';
 import type Mithril from 'mithril';
 import Sparkline from './Sparkline';
-import { call, lossPercent, num, price, until, type Market, type Wallet } from './data';
+import { call, errorText, lossPercent, num, price, until, type Market, type Wallet } from './data';
 import { t, tx } from '../util';
 
 /**
@@ -12,8 +12,6 @@ import { t, tx } from '../util';
  * confirm. The server decides everything that matters (price, caps, closing);
  * this only shows the limits it sent.
  */
-
-declare const m: Mithril.Static;
 
 interface Attrs extends IFormModalAttrs {
   market: Market;
@@ -142,13 +140,14 @@ export default class BackModal extends FormModal<Attrs> {
   onsubmit(e: SubmitEvent) {
     e.preventDefault();
     this.loading = true;
-    call<{ market: Market; wallet: Wallet }>('POST', `/discussions/${this.attrs.market.discussion!.id}/back`, { stake: this.stake })
+    call<{ market: Market; wallet: Wallet }>('POST', `/discussions/${this.attrs.market.discussion!.id}/back`, { stake: this.stake }, true)
       .then((res) => {
         this.attrs.onback(res.market, res.wallet);
         app.alerts.show({ type: 'success' }, t('back.done', { n: num(this.stake) }));
         this.hide();
       })
-      .catch(() => {})
+      // The form stays open with the stake chosen, so the member can fix it (or wait) and try again.
+      .catch((error) => app.alerts.show({ type: 'error' }, errorText(error)))
       .finally(() => {
         this.loading = false;
         m.redraw();

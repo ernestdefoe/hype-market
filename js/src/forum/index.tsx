@@ -3,7 +3,6 @@ import { extend } from 'flarum/common/extend';
 import type ItemList from 'flarum/common/utils/ItemList';
 import LinkButton from 'flarum/common/components/LinkButton';
 import Icon from 'flarum/common/components/Icon';
-import Notification from 'flarum/forum/components/Notification';
 import CommentPost from 'flarum/forum/components/CommentPost';
 import type Mithril from 'mithril';
 import { pct, t } from './util';
@@ -11,46 +10,14 @@ import { pct, t } from './util';
 export { default as extend } from './extend';
 
 /*
- * forum.js is loaded on every page, so it only wires things up: the route,
- * the sidebar link, the alerts, the "backed by 12" chip on discussion cards
+ * forum.js is loaded on every page, so it only wires things up (the route
+ * and the alerts are in extend.ts): the sidebar link, the "backed by 12" chip on discussion cards
  * (from the `hype` attribute the list already carries) and the slot for the
  * market bar under a young discussion's first post. The page, the bar and
  * the back form are one chunk fetched when first needed.
  */
 
-class PaidNotification extends Notification {
-  icon() {
-    return 'fas fa-arrow-trend-up';
-  }
-  href() {
-    return app.route('hype') + '?tab=portfolio';
-  }
-  content() {
-    return t('notification.paid');
-  }
-  excerpt() {
-    return (this.attrs.notification as any).subject()?.attribute?.('title') ?? '';
-  }
-}
-
-class FlatNotification extends PaidNotification {
-  icon() {
-    return 'fas fa-scale-balanced';
-  }
-  content() {
-    return t('notification.flat');
-  }
-}
-
 app.initializers.add('ernestdefoe/hype-market', () => {
-  app.routes['hype'] = {
-    path: '/hype',
-    component: () => import('./components').then(async (ui) => (await ui.loadCore(), { default: ui.HypePage })),
-  };
-
-  app.notificationComponents.hypePaid = PaidNotification;
-  app.notificationComponents.hypeFlat = FlatNotification;
-
   // String form: these components live in lazy chunks, and extending an imported copy patches one core never renders.
   extend('flarum/forum/components/IndexSidebar', 'navItems', function (items: ItemList<any>) {
     if (!app.forum.attribute('hypeCanView') || !app.forum.attribute('hypeNav')) return;

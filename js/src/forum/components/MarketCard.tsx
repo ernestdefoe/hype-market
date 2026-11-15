@@ -5,7 +5,6 @@ import Icon from 'flarum/common/components/Icon';
 import Link from 'flarum/common/components/Link';
 import Avatar from 'flarum/common/components/Avatar';
 import humanTime from 'flarum/common/helpers/humanTime';
-import type Mithril from 'mithril';
 import Sparkline from './Sparkline';
 import { discussionUrl, fakeUser, num, price, signed, times, trend, until, type Market, type Wallet } from './data';
 import { pct, t } from '../util';
@@ -16,8 +15,6 @@ interface Attrs {
   rank?: number;
   onback: (market: Market, wallet: Wallet) => void;
 }
-
-declare const m: Mithril.Static;
 
 /** Opens the back form, or the log-in form for a guest. */
 export function openBack(market: Market, wallet: Wallet | null, onback: Attrs['onback']): void {
@@ -60,7 +57,7 @@ export default class MarketCard extends Component<Attrs> {
                   <Avatar user={fakeUser(market.author)} className="HypeAvatar" /> {market.author.displayName}
                 </span>
               ) : null}
-              <span>{humanTime(market.openedAt)}</span>
+              <span>{humanTime(new Date(market.openedAt))}</span>
               {market.discussion ? (
                 <span>
                   <Icon name="far fa-comment" /> {num(Math.max(0, market.discussion.commentCount - 1))}
