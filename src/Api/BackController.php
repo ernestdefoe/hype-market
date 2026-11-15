@@ -31,7 +31,7 @@ class BackController extends Handler
         $actor->assertCan(Settings::VIEW);
         $actor->assertCan(Settings::BACK);
 
-        $discussion = Discussion::query()->whereVisibleTo($actor)->findOrFail((int) Arr::get($request->getQueryParams(), 'id'));
+        $discussion = Discussion::query()->whereVisibleTo($actor)->findOrFail((int) Arr::get($request->getAttribute('routeParameters', []), 'id'));
         $stake = Arr::get(self::body($request), 'stake');
         if (! is_int($stake) && ! (is_string($stake) && ctype_digit($stake))) {
             return Errors::make(422, 'hype_bad_stake');

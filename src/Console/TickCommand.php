@@ -6,6 +6,7 @@ use Carbon\Carbon;
 use ErnestDefoe\HypeMarket\Market;
 use ErnestDefoe\HypeMarket\Markets;
 use ErnestDefoe\HypeMarket\Repricer;
+use ErnestDefoe\HypeMarket\Scores;
 use ErnestDefoe\HypeMarket\Seasons;
 use ErnestDefoe\HypeMarket\Settings;
 use ErnestDefoe\HypeMarket\Settler;
@@ -17,7 +18,8 @@ use Flarum\Console\AbstractCommand;
  *  2. opens markets for new discussions that don't have one yet;
  *  3. reprices every open market (two engagement queries per 200 markets);
  *  4. settles every market whose time is up. Settler locks each row and
- *     checks it again, so overlapping runs settle each market exactly once.
+ *     checks it again, so overlapping runs settle each market exactly once;
+ *  5. recounts any member whose season total missed a settlement (Scores::heal).
  */
 class TickCommand extends AbstractCommand
 {
@@ -27,6 +29,7 @@ class TickCommand extends AbstractCommand
         private readonly Repricer $repricer,
         private readonly Settler $settler,
         private readonly Settings $settings,
+        private readonly Scores $scores,
     ) {
         parent::__construct();
     }
@@ -57,7 +60,9 @@ class TickCommand extends AbstractCommand
             $settled += $this->settler->settle((int) $id) ? 1 : 0;
         }
 
-        $this->info(($rolled ? 'New season. ' : '')."Opened {$opened}, repriced {$repriced}, settled {$settled}.");
+        $healed = $this->scores->heal();
+
+        $this->info(($rolled ? 'New season. ' : '')."Opened {$opened}, repriced {$repriced}, settled {$settled}, recounted {$healed}.");
 
         return 0;
     }

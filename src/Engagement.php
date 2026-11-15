@@ -4,7 +4,7 @@ namespace ErnestDefoe\HypeMarket;
 
 use Carbon\Carbon;
 use Flarum\Extension\ExtensionManager;
-use Illuminate\Database\ConnectionInterface;
+use Flarum\Post\Post;
 use Illuminate\Support\Collection;
 
 /**
@@ -31,7 +31,6 @@ class Engagement
     public const MIN_REPLY_CHARS = 12;
 
     public function __construct(
-        private readonly ConnectionInterface $db,
         private readonly ExtensionManager $extensions,
         private readonly Settings $settings,
     ) {
@@ -65,7 +64,7 @@ class Engagement
         $minAge = $this->settings->minAccountDays() * 86400;
         $approval = $this->extensions->isEnabled('flarum-approval');
 
-        $replies = $this->db->table('posts')
+        $replies = Post::query()->toBase()
             ->join('users', 'users.id', '=', 'posts.user_id')
             ->whereIn('posts.discussion_id', $ids)
             ->where('posts.type', 'comment')
@@ -81,7 +80,7 @@ class Engagement
         // Each member's comments in each of these discussions: they don't count toward min_posts here.
         $inThread = [];
         if ($minPosts > 0) {
-            foreach ($this->db->table('posts')
+            foreach (Post::query()->toBase()
                 ->whereIn('discussion_id', $ids)->where('type', 'comment')->whereNull('hidden_at')->whereNotNull('user_id')
                 ->groupBy('discussion_id', 'user_id')
                 ->selectRaw('discussion_id, user_id, COUNT(*) as n')->get() as $row) {
@@ -101,8 +100,8 @@ class Engagement
         }
 
         if ($this->extensions->isEnabled('flarum-likes')) {
-            $likes = $this->db->table('post_likes')
-                ->join('posts', 'posts.id', '=', 'post_likes.post_id')
+            $likes = Post::query()->toBase()
+                ->join('post_likes', 'post_likes.post_id', '=', 'posts.id')
                 ->join('users', 'users.id', '=', 'post_likes.user_id')
                 ->whereIn('posts.discussion_id', $ids)
                 ->whereNull('posts.hidden_at')

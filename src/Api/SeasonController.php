@@ -25,7 +25,7 @@ class SeasonController extends Handler
             throw new Refusal('hype_bad_season');
         }
 
-        $result = $this->seasons->startNew($name);
+        $result = $this->seasons->startNew($name) ?? throw new Refusal('hype_busy', 429);
 
         return new JsonResponse(['ended' => $result['ended']->toRow(), 'started' => $result['started']->toRow()], 201);
     }

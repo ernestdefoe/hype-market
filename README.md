@@ -49,6 +49,10 @@ Each of these has an integration test.
 
 With flarum/gdpr, a member's data export includes their calls and season totals, and erasing them removes those.
 
+## Why the API isn't JSON:API resources
+
+Hype Market's endpoints (`/api/hype/...`) are plain JSON on purpose. Nothing in them is CRUD on a model: markets are created and priced only by the server, so members never create, edit or delete one. The reads are computed views across several models in one answer (a market card with the viewer's own position and today's allowance, the portfolio, the leaderboard, the hottest list), and the writes are actions with their own race-safe rules (back a discussion, call off a market, end a season). The read-only `hype-markets` resource exists as the subject of notifications.
+
 ## Settings
 
 Admin → Hype Market: daily hype, how much a quiet call loses (0 by default), smallest and largest stake, backs per day, how long a discussion can be backed, when it settles, account age and post count before activity counts, members needed for a payout, monthly or manual seasons (with "End this season now"), and whether the scheduler is running. Permissions: view, back, call off markets.

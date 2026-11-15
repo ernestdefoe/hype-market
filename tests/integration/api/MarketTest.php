@@ -694,6 +694,99 @@ class MarketTest extends TestCase
         $this->assertSame(1, Market::query()->count(), 'the market stays for anyone else in it');
     }
 
+    /** Hold a Hype Market cache lock as another process would. */
+    private function holdLock(string $name): \Illuminate\Contracts\Cache\Lock
+    {
+        $store = $this->app()->getContainer()->make(\Illuminate\Contracts\Cache\Repository::class)->getStore();
+        $this->assertInstanceOf(\Illuminate\Contracts\Cache\LockProvider::class, $store);
+        $lock = $store->lock('ernestdefoe-hype-market.'.$name, 30);
+        $this->assertTrue($lock->get());
+
+        return $lock;
+    }
+
+    #[Test]
+    public function a_back_that_finds_the_market_busy_is_refused_without_waiting(): void
+    {
+        $this->app()->getContainer()->make(Markets::class)->openNew();
+        $lock = $this->holdLock('market.'.$this->market()->id);
+
+        [$status, $body] = $this->back(self::BO);
+        $this->assertSame(429, $status);
+        $this->assertSame('hype_busy', $this->error($body));
+        $this->assertSame(0, Position::query()->count());
+        $this->assertSame(['spent' => 0, 'backs' => 0], Account::today(self::BO));
+
+        $lock->release();
+        $this->backOk(self::BO);
+    }
+
+    #[Test]
+    public function the_same_member_backing_twice_at_once_is_held_apart(): void
+    {
+        $this->discussions([40]);
+        $lock = $this->holdLock('account.'.self::BO);
+
+        [$status, $body] = $this->back(self::BO, 20, 40);
+        $this->assertSame('hype_busy', $this->error($body));
+
+        $lock->release();
+        $this->backOk(self::BO, 20, 40);
+    }
+
+    #[Test]
+    public function a_busy_market_settles_on_the_next_run(): void
+    {
+        $this->backOk(self::BO, 50);
+        $this->reply(self::DEE, 10);
+        $this->reply(self::ELI, 20);
+        // The clock moves first: a lock outlives its 30 seconds only on the clock it was taken on.
+        Carbon::setTestNow(Carbon::parse(self::NOW)->addHours(72));
+        $lock = $this->holdLock('market.'.$this->market()->id);
+
+        $this->assertFalse($this->app()->getContainer()->make(Settler::class)->settle($this->market()->id));
+        $this->assertNull($this->market()->settled_at);
+
+        $lock->release();
+        $this->assertTrue($this->settle());
+        $this->assertGreaterThan(0, $this->position(self::BO)->profit);
+    }
+
+    #[Test]
+    public function a_skipped_season_recount_is_healed_by_the_tick(): void
+    {
+        $this->backOk(self::BO, 50);
+        $this->reply(self::DEE, 10);
+        $this->reply(self::ELI, 20);
+
+        // The member's account is busy while the market settles: the recount is skipped.
+        Carbon::setTestNow(Carbon::parse(self::NOW)->addHours(72));
+        $lock = $this->holdLock('account.'.self::BO);
+        $this->assertTrue($this->app()->getContainer()->make(Settler::class)->settle($this->market()->id));
+        $this->assertNull(Score::query()->where('user_id', self::BO)->first());
+        $lock->release();
+
+        $scores = $this->app()->getContainer()->make(\ErnestDefoe\HypeMarket\Scores::class);
+        $this->assertSame(1, $scores->heal());
+        $score = Score::query()->where('user_id', self::BO)->firstOrFail();
+        $this->assertSame(1, $score->settled);
+        $this->assertSame($this->position(self::BO)->profit, $score->profit);
+        $this->assertSame(0, $scores->heal(), 'nothing left to recount');
+    }
+
+    #[Test]
+    public function a_moderator_calling_off_a_busy_market_is_asked_to_retry(): void
+    {
+        $this->backOk(self::BO, 30);
+        $id = $this->market()->id;
+        $lock = $this->holdLock('market.'.$id);
+
+        [$status, $body] = $this->api('POST', "/markets/$id/void", self::MO);
+        $this->assertSame(429, $status);
+        $this->assertSame('hype_busy', $this->error($body));
+        $lock->release();
+    }
+
     private function lossRate(int $percent): void
     {
         $this->app()->getContainer()->make(SettingsRepositoryInterface::class)->set('ernestdefoe-hype-market.loss_percent', (string) $percent);

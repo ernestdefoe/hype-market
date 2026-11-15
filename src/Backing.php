@@ -16,6 +16,8 @@ use Illuminate\Support\Collection;
  * Two backs fired at once can't both pass a cap, a back can't land after the
  * market closed or settled, and one position per member per market is a
  * unique key as well. The entry price is always the server's, never sent in.
+ * The same market and account are held as cache locks too (Locks), which is
+ * what keeps SQLite (where FOR UPDATE does nothing) just as safe.
  */
 class Backing
 {
@@ -24,6 +26,7 @@ class Backing
         private readonly Engagement $engagement,
         private readonly Repricer $repricer,
         private readonly Settings $settings,
+        private readonly Locks $locks,
     ) {
     }
 
@@ -41,7 +44,22 @@ class Backing
 
         $market = $this->markets->forDiscussion($discussion) ?? throw new Refusal('hype_not_backable');
 
-        $position = $market->getConnection()->transaction(function () use ($market, $actor, $stake) {
+        $position = $this->locks->attempt(
+            ['market.'.$market->id, 'account.'.$actor->id],
+            fn () => $this->open($market, $actor, $stake),
+            fn () => throw new Refusal('hype_busy', 429),
+        );
+
+        // The backer's own engagement leaves the price for everyone, and the sparkline follows.
+        $this->repricer->reprice(new Collection([$market->fresh()]));
+
+        return $position;
+    }
+
+    /** The position, written under the market and account locks. */
+    private function open(Market $market, User $actor, int $stake): Position
+    {
+        return $market->getConnection()->transaction(function () use ($market, $actor, $stake) {
             $now = Carbon::now();
             /** @var Market|null $locked */
             $locked = Market::query()->whereKey($market->id)->lockForUpdate()->first();
@@ -82,11 +100,6 @@ class Backing
 
             return $position;
         });
-
-        // The backer's own engagement leaves the price for everyone, and the sparkline follows.
-        $this->repricer->reprice(new Collection([$market->fresh()]));
-
-        return $position;
     }
 
     /** The member's account row, locked, with a new day's spending reset. */

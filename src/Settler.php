@@ -12,6 +12,11 @@ use Illuminate\Support\Collection;
 /**
  * Settling a market: server-side only (the tick, or a moderator calling it off).
  *
+ * The market is also held as a cache lock (Locks) for SQLite, where FOR
+ * UPDATE does nothing; if it is busy, this run settles nothing and the next
+ * tick does. Season totals are recounted after, and Scores::heal catches any
+ * member a busy lock or a crash left behind.
+ *
  * 🚨 Idempotent and race-safe: the market row is locked and `settled_at` is
  * checked inside the transaction, so of two runs that overlap exactly one
  * settles and the other does nothing. Prices come from Pricing over the
@@ -33,11 +38,17 @@ class Settler
         private readonly Scores $scores,
         private readonly Settings $settings,
         private readonly NotificationSyncer $notifications,
+        private readonly Locks $locks,
     ) {
     }
 
-    /** @return bool whether this call settled it */
+    /** @return bool whether this call settled it (false: already settled, not due, or busy right now) */
     public function settle(int $marketId, bool $void = false): bool
+    {
+        return $this->locks->attempt(['market.'.$marketId], fn () => $this->settleLocked($marketId, $void), fn () => false);
+    }
+
+    private function settleLocked(int $marketId, bool $void): bool
     {
         $result = Market::query()->getConnection()->transaction(function () use ($marketId, $void) {
             $now = Carbon::now();

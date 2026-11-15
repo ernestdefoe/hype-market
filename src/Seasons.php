@@ -11,12 +11,26 @@ use Carbon\Carbon;
  */
 class Seasons
 {
-    public function __construct(private readonly Settings $settings)
-    {
+    public function __construct(
+        private readonly Settings $settings,
+        private readonly Locks $locks,
+    ) {
     }
 
-    /** @return array{ended: Season, started: Season} */
+    /**
+     * End the open season and start the next, under a row lock and the same
+     * name as a cache lock (Locks, for SQLite). Busy: refused, so an admin
+     * tries again and the monthly roll waits for the next tick.
+     *
+     * @return array{ended: Season, started: Season}|null null when another run already rolled it
+     */
     public function startNew(string $name, ?int $expectCurrent = null): ?array
+    {
+        return $this->locks->attempt(['season'], fn () => $this->roll($name, $expectCurrent), fn () => throw new Refusal('hype_busy', 429));
+    }
+
+    /** @return array{ended: Season, started: Season}|null */
+    private function roll(string $name, ?int $expectCurrent): ?array
     {
         return Season::query()->getConnection()->transaction(function () use ($name, $expectCurrent) {
             $current = Season::query()->whereNull('ended_at')->orderByDesc('id')->lockForUpdate()->first() ?? Season::current();
@@ -50,6 +64,11 @@ class Seasons
             return false;
         }
 
-        return $this->startNew($now->copy()->utc()->format('F Y'), $current->id) !== null;
+        try {
+            return $this->startNew($now->copy()->utc()->format('F Y'), $current->id) !== null;
+        } catch (Refusal) {
+            // Another run is rolling it right now; the next tick sees the new season.
+            return false;
+        }
     }
 }

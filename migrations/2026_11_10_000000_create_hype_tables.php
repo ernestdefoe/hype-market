@@ -4,6 +4,9 @@ use Illuminate\Database\Schema\Blueprint;
 use Illuminate\Database\Schema\Builder;
 
 /*
+ * Five tables in one migration, by hand rather than Migration::createTable(): the seasons table is
+ * seeded with the first season here, and every table is dropped again in down(), newest first.
+ *
  * Index and foreign key names are left to Laravel, which prefixes them with the
  * table prefix: hand-written names are not prefixed, and MySQL foreign key names
  * are database-wide, so two forums sharing a database would clash (error 1826).

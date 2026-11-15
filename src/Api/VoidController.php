@@ -27,9 +27,10 @@ class VoidController extends Handler
         $actor = RequestUtil::getActor($request);
         $actor->assertCan(Settings::MODERATE);
 
-        $market = Market::query()->visibleTo($actor)->findOrFail((int) Arr::get($request->getQueryParams(), 'id'));
+        $market = Market::query()->visibleTo($actor)->findOrFail((int) Arr::get($request->getAttribute('routeParameters', []), 'id'));
         if (! $this->settler->settle($market->id, true)) {
-            throw new Refusal('hype_already_settled');
+            // Settled already, or the scheduler is settling it this very moment.
+            throw $market->fresh()?->settled_at ? new Refusal('hype_already_settled') : new Refusal('hype_busy', 429);
         }
 
         return new JsonResponse(['voided' => true]);

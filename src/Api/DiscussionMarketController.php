@@ -27,7 +27,7 @@ class DiscussionMarketController extends Handler
         $actor = RequestUtil::getActor($request);
         $actor->assertCan(Settings::VIEW);
 
-        $discussion = Discussion::query()->whereVisibleTo($actor)->findOrFail((int) Arr::get($request->getQueryParams(), 'id'));
+        $discussion = Discussion::query()->whereVisibleTo($actor)->findOrFail((int) Arr::get($request->getAttribute('routeParameters', []), 'id'));
         $market = Market::query()->where('discussion_id', $discussion->id)->first();
         if ($market) {
             $market->setRelation('discussion', $discussion);

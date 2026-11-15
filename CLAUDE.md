@@ -19,6 +19,8 @@
 - Titles shown anywhere come from the discussion relation (renames follow); `hype_markets.title` only stands in once the discussion is gone.
 - flarum/gdpr (optional, `Extend\Conditional`): `Gdpr\HypeData` exports calls (titles only where still visible), season totals and spending; erasure deletes them and unlinks the member's markets.
 - Notification subject = `Market`, which has the `hype-markets` resource and store model: without either, notification lists break.
+- 🚨 **Every DB row lock has a cache lock beside it** (`Locks::attempt`, sorted names `market.N`, `account.U`, `season`): FOR UPDATE does nothing on SQLite. Locks never wait (no sleep in a request): Backing and season ends refuse with `hype_busy`, Settler returns false (the next tick retries), Scores skips and `Scores::heal()` (every tick) recounts any member whose total doesn't match their settled calls.
+- The route and notification components are registered in `js/src/forum/extend.ts` (`Extend.Routes`, `Extend.Notification`), never `app.routes[...] =`. No empty `.catch`: tell the member or show a retry. `npm run check-typings` runs in CI (flarum-tsconfig).
 - Frontend: forum.js only wires things up; everything else is ONE lazy chunk (`components/index.ts`). The market bar is its own Mithril root (`m.mount`) because the post's subtree retainer never redraws children.
 - Mithril has no function components: every component is a class.
 

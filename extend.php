@@ -18,12 +18,8 @@ use ErnestDefoe\HypeMarket\Gdpr\HypeData;
 use ErnestDefoe\HypeMarket\Http\PageContent;
 use ErnestDefoe\HypeMarket\Listener\OpenMarket;
 use ErnestDefoe\HypeMarket\Notification;
-use ErnestDefoe\HypeMarket\Settings;
-use Flarum\Api\Context;
 use Flarum\Api\Resource\DiscussionResource;
 use Flarum\Api\Resource\ForumResource;
-use Flarum\Api\Schema;
-use Flarum\Discussion\Discussion;
 use Flarum\Discussion\Event\Started;
 use Flarum\Extend;
 use Flarum\Gdpr\Extend\UserData;
@@ -43,6 +39,16 @@ return [
 
     new Extend\Locales(__DIR__.'/locale'),
 
+    /*
+     * Plain JSON endpoints, not JSON:API resources, on purpose: none of them is CRUD on a model.
+     * Markets are only ever created and priced by the server (a member can't create, edit or
+     * delete one), so there is no create/update/delete to expose. The reads are computed views
+     * across several models in one answer (a market card carries the viewer's own position and
+     * today's allowance; the portfolio, leaderboard and hottest list are aggregates), and the
+     * writes are actions with their own race-safe rules (back, call off, end a season). The
+     * `hype-markets` resource (Api\MarketResource) still exists, read-only with no endpoints,
+     * as the subject of notifications.
+     */
     (new Extend\Routes('api'))
         ->get('/hype/markets', 'hype.markets', Api\MarketsController::class)
         ->get('/hype/discussions/{id:\d+}', 'hype.discussion', Api\DiscussionMarketController::class)
@@ -56,40 +62,32 @@ return [
 
     // The chip and the market bar: one query per request for every young discussion on it, none for older ones.
     (new Extend\ApiResource(DiscussionResource::class))
-        ->fields(fn () => [
-            Schema\Arr::make('hype')
-                ->nullable()
-                ->get(fn (Discussion $discussion, Context $context) => resolve(Api\DiscussionHype::class)->field($discussion, $context)),
-        ]),
+        ->fields(Api\DiscussionFields::class),
 
-    // The viewer's own permissions: their groups are already loaded, so no query.
     (new Extend\ApiResource(ForumResource::class))
-        ->fields(fn () => [
-            Schema\Boolean::make('hypeCanView')
-                ->get(fn ($forum, Context $context) => $context->getActor()->hasPermission(Settings::VIEW)),
-            Schema\Boolean::make('hypeCanBack')
-                ->get(fn ($forum, Context $context) => ! $context->getActor()->isGuest() && $context->getActor()->hasPermission(Settings::BACK)),
-        ]),
+        ->fields(Api\ForumFields::class),
 
     (new Extend\Notification())
         ->type(Notification\HypePaidBlueprint::class, ['alert'])
         ->type(Notification\HypeFlatBlueprint::class, ['alert']),
 
+    // String literals, not Settings constants: extend.php is read while a deploy swaps vendor/, and
+    // autoloading our own class here would fatal every request in that window.
     (new Extend\Settings())
-        ->default(Settings::NAV, true)
-        ->default(Settings::ALLOWANCE, Settings::DEFAULTS[Settings::ALLOWANCE])
-        ->default(Settings::MAX_STAKE, Settings::DEFAULTS[Settings::MAX_STAKE])
-        ->default(Settings::MIN_STAKE, Settings::DEFAULTS[Settings::MIN_STAKE])
-        ->default(Settings::MAX_BACKS, Settings::DEFAULTS[Settings::MAX_BACKS])
-        ->default(Settings::BACKING_HOURS, Settings::DEFAULTS[Settings::BACKING_HOURS])
-        ->default(Settings::WINDOW_HOURS, Settings::DEFAULTS[Settings::WINDOW_HOURS])
-        ->default(Settings::MIN_ACCOUNT_DAYS, Settings::DEFAULTS[Settings::MIN_ACCOUNT_DAYS])
-        ->default(Settings::MIN_POSTS, Settings::DEFAULTS[Settings::MIN_POSTS])
-        ->default(Settings::MIN_PARTICIPANTS, Settings::DEFAULTS[Settings::MIN_PARTICIPANTS])
-        ->default(Settings::SEASON_MODE, Settings::DEFAULTS[Settings::SEASON_MODE])
-        ->default(Settings::LOSS, Settings::DEFAULTS[Settings::LOSS])
-        ->serializeToForum('hypeNav', Settings::NAV, 'boolval')
-        ->serializeToForum('hypeLoss', Settings::LOSS, 'intval'),
+        ->default('ernestdefoe-hype-market.nav', true)
+        ->default('ernestdefoe-hype-market.daily_allowance', 100)
+        ->default('ernestdefoe-hype-market.max_stake', 50)
+        ->default('ernestdefoe-hype-market.min_stake', 5)
+        ->default('ernestdefoe-hype-market.max_backs', 5)
+        ->default('ernestdefoe-hype-market.backing_hours', 24)
+        ->default('ernestdefoe-hype-market.window_hours', 72)
+        ->default('ernestdefoe-hype-market.min_account_days', 7)
+        ->default('ernestdefoe-hype-market.min_posts', 3)
+        ->default('ernestdefoe-hype-market.min_participants', 2)
+        ->default('ernestdefoe-hype-market.season_mode', 'monthly')
+        ->default('ernestdefoe-hype-market.loss_percent', 0)
+        ->serializeToForum('hypeNav', 'ernestdefoe-hype-market.nav', 'boolval')
+        ->serializeToForum('hypeLoss', 'ernestdefoe-hype-market.loss_percent', 'intval'),
 
     (new Extend\Event())
         ->listen(Started::class, OpenMarket::class),
